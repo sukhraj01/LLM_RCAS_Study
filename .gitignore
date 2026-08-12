@@ -1,0 +1,30 @@
+# Environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Data & model artifacts (large, reproducible from scripts — don't commit)
+data/*
+!data/.gitkeep
+checkpoints/*
+!checkpoints/.gitkeep
+*.bin
+*.safetensors
+*.onnx
+*.engine
+
+# Results & logs ARE committed (small, and they're the evidence) — do not ignore results/ or logs/
+# Keep this section as a reminder not to add them here.
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Kaggle
+kaggle.json

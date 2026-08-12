@@ -1,0 +1,44 @@
+# Core ML stack
+# NOTE: On Kaggle, torch/CUDA are usually already installed and matched to the
+# notebook's GPU driver. Do NOT force-reinstall torch there — installing this file
+# on Kaggle should skip torch (comment it out or use `pip install -r requirements.txt --no-deps`
+# for torch-adjacent packages if you hit a CUDA mismatch). Locally, torch installs normally
+# but you likely have no GPU — that's fine, local is for dev/lint/API/dashboard work, not training.
+torch>=2.1.0
+transformers>=4.40.0
+peft>=0.10.0
+bitsandbytes>=0.43.0
+accelerate>=0.29.0
+datasets>=2.18.0
+evaluate>=0.4.1
+rouge_score>=0.1.2
+sentencepiece>=0.2.0
+huggingface_hub>=0.22.0
+
+# Inference optimization
+optimum[onnxruntime-gpu]>=1.19.0
+onnx>=1.16.0
+
+# API + dashboard (local/deployment work, Weeks 6-9)
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+streamlit>=1.33.0
+
+# Utilities
+pandas>=2.2.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+tqdm>=4.66.0
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
+
+# Dev tooling (local only — not needed on Kaggle)
+ruff>=0.4.0
+black>=24.3.0
+pytest>=8.1.0
+
+# --- Pin exact versions once you have a working install ---
+# After your first successful Kaggle run, do:
+#   pip freeze | grep -E "torch|transformers|peft|bitsandbytes|accelerate|datasets" >> requirements.lock.txt
+# and commit requirements.lock.txt. Reproducibility (per CLAUDE.md) depends on
+# exact versions, not just minimums — minimums are a starting point, not the final word.

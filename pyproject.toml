@@ -1,0 +1,27 @@
+[project]
+name = "llm-optimization"
+version = "0.1.0"
+description = "Efficient Fine-Tuning, Quantization, and Inference Optimization of LLMs for Resource-Constrained Systems"
+requires-python = ">=3.10"
+readme = "README.md"
+
+# Actual dependency versions are pinned in requirements.txt (installed both locally
+# and in the Kaggle notebook's first cell: `!pip install -r requirements.txt`).
+# This file exists for tooling (formatter/linter config, editor integration) —
+# it is not the install source of truth. Keep it that way; don't let two
+# dependency lists drift.
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
