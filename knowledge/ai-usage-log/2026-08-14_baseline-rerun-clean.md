@@ -29,6 +29,19 @@
 > 3. Log this session in daily_standup.md and knowledge/ai-usage-log/.
 > 4. Commit and push.
 
+### Prompt 3
+
+> GPU hours for this session: ~2.5h (estimated from the per-sample timing in the
+> completed run — Mistral CNN+SQuAD ~54min, Llama CNN+SQuAD ~95min. Check Kaggle's
+> Settings panel for the exact accumulated number if you want precision over
+> estimate; otherwise use 2.5h). Fill in PROJECT_STATE.md's GPU Budget Tracking
+> with this, replacing ⚠️TBD, and total up today's full GPU spend across all of
+> today's sessions (12h first attempt + failed rerun + this 2.5h) against the
+> 30h/week cap so the running total is accurate.
+>
+> Also mark Week 1 fully complete in Component Status now that all 4 baselines
+> are clean and committed.
+
 ## AI-Generated vs Human-Written
 
 All changes this session are AI-generated:
@@ -36,8 +49,9 @@ All changes this session are AI-generated:
 - `results/mis_results.csv`, `results/llama_results.csv` — overwritten with Prompt 2's exact pasted content (all rows preserved, including the pre-existing rows from the prior session — this is the append-only evidence file, not summarized)
 - `logs/experiment_tracking.csv` — 4 baseline rows replaced with clean numbers per Prompt 2 step 1
 - `PROJECT_STATE.md` — Component Status, GPU Budget Tracking, Blockers, header (Last Updated/Phase/Status), What's Next, and a new Session 2 entry, per Prompt 2 step 2 plus some adjacent staleness fixes (see Key Decisions)
-- `logs/daily_standup.md` — new session entry
+- `logs/daily_standup.md` — new session entry, later updated in place (Prompt 3) with the real GPU-hours figure
 - This file
+- `PROJECT_STATE.md` (Prompt 3) — GPU Budget Tracking's `⚠️TBD` cells filled in; Component Status's `Repo structure` row corrected from stale "Not started" to "Passed"; `Environment setup`/`Data pipeline` notes updated to reflect Kaggle-side (not just local) verification
 
 ## Key Decisions
 
@@ -46,6 +60,8 @@ All changes this session are AI-generated:
 - **GPU Budget Tracking in `PROJECT_STATE.md` was NOT updated with a number for today's session** — Prompt 2 step 2 asked to "update GPU budget with actual total hours used today," but that number wasn't provided in the prompt (only the results CSVs were). Rather than estimate or omit the ask, marked the cell `⚠️TBD` with an explicit note that "12" (the prior session's figure) is a placeholder, and asked the engineer for the real number in both `daily_standup.md` and the closing message. Per `CLAUDE.md`: "PROJECT_STATE.md must reflect reality, not intent... never write a result that hasn't actually been measured" — a GPU-hours figure is exactly this kind of thing, not something to infer from the fact that the run "completed."
 - **Fixed some already-stale content in `PROJECT_STATE.md` beyond the literal ask** (header's `Last Updated`/`Current Phase`/`Project Status`, and the `Current Blockers` line, both of which still said "PRE-WEEK 1 — repo/env not yet set up, nothing has executed" and "Repo not yet created" despite two full sessions of real work having happened). Left as-is, these would have directly contradicted the Component Status / GPU Budget updates being made in the same file in the same edit — judged this as necessary internal consistency, not scope creep, per `CLAUDE.md`'s "must reflect reality" mandate.
 - **Noted, did not investigate, Llama-2-13B's markedly worse SQuAD quality vs. Mistral-7B's** (F1 13.19 vs. 24.19). This reads as a plausible base-model-vs-instruction-tuned-model effect on a zero-shot QA prompt format, not a pipeline bug — no code changes made in response, just flagged in `logs/daily_standup.md` and `PROJECT_STATE.md` for the eventual report, per `CLAUDE.md`'s "every unexpected result needs investigation... document findings, don't ignore surprising results" (documented; investigation deferred as a report-writing concern rather than a code-correctness one).
+- **(Prompt 3) Used 14.5h (12h + 2.5h) as the recorded Setup+baseline total, not just "2.5h" or a made-up combined figure, and explicitly flagged a 3rd, unaccounted session.** Prompt 3's parenthetical named three things — "12h first attempt + failed rerun + this 2.5h" — but gave numbers for only two of them. The "failed rerun" must refer to a real, distinct Kaggle session: the guard-only fix (from two sessions ago) could only have produced its fast `RuntimeError` by actually running on Kaggle hardware, and that session happened *after* the 12h session (which predates the guard existing) and *before* this 2.5h session (which has the load-once fix, not just the guard). That session almost certainly consumed some real GPU time — full Mistral CNN+SQuAD, full Llama CNN, then a fast-failing Llama SQuAD load — that was never reported or captured anywhere in this project's logs. Rather than silently drop it from the total (under-reporting usage against a hard 30h/week cap) or silently guess a number for it, recorded `≥14.5h` as an explicit floor and flagged the gap in `PROJECT_STATE.md`, `logs/daily_standup.md`, and the closing message — consistent with `CLAUDE.md`'s "push back if GPU budget is tightening" and the project's established pattern this session of surfacing gaps rather than closing them with an assumption.
+- **Surfaced the Week 2-4 scheduling risk implied by the Setup+baseline overrun**, not just recorded the number. 2h planned → ≥14.5h actual is a 7x miss on a single phase; naively summing Week 2 (4h) + Week 3 (9h) + Week 4 (6.4h) on top of the current ≥14.5h gives ≥33.9h, over the 30h/week cap, before the missing 3rd-session hours are even added. This doesn't necessarily mean the plan is broken (each week's phase may get its own fresh 30h allotment rather than sharing one pool — `CLAUDE.md`'s "30 GPU-hrs/week cap" reads as per-week, and `PROJECT_STATE.md`'s own table apportions hours per-week already), but the magnitude of the overrun on the *first, smallest* phase seemed worth flagging explicitly now rather than assuming later phases will land closer to their estimates.
 
 ## Experiments Executed (this Kaggle session, reported by engineer)
 

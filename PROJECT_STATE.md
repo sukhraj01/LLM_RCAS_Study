@@ -39,9 +39,9 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 
 | Component | Status | Progress | Notes |
 |-----------|--------|----------|-------|
-| **Repo structure** | ⬜ Not started | 0% | Needs creating |
-| **Environment setup** | ✅ Passed (local) | 100% local / Kaggle not yet run | `.venv` (Python 3.11) created, `pip install -r requirements.txt` succeeds after fixing an `optimum[onnxruntime-gpu]`/macOS wheel conflict (see 2026-08-13 ai-usage-log). HF_TOKEN verified present and non-placeholder in `.env`. Kaggle-side GPU install (`optimum[onnxruntime-gpu]` extra step, actual torch/CUDA) not yet verified — no GPU on this machine. |
-| **Data pipeline** | ✅ Passed (local) | 100% | `python -m utils.data_loader` sanity check passed: CNN/DailyMail val=200/test=200, SQuAD val=200/test=200, no overlap by construction (both datasets). |
+| **Repo structure** | ✅ Passed | 100% | Matches `ARCHITECTURE.md`'s file structure; pushed to `github.com/sukhraj01/LLM_RCAS_Study` |
+| **Environment setup** | ✅ Passed (local + Kaggle) | 100% | `.venv` (Python 3.11) created locally, `pip install -r requirements.txt` succeeds after fixing an `optimum[onnxruntime-gpu]`/macOS wheel conflict (see 2026-08-13 ai-usage-log). HF_TOKEN verified. Kaggle-side torch/CUDA now confirmed working via 2 real GPU sessions (baseline runs). The `optimum[onnxruntime-gpu]` extra install step is still unverified — no ONNX experiments have run yet (Week 4). |
+| **Data pipeline** | ✅ Passed (local + Kaggle) | 100% | `python -m utils.data_loader` sanity check passed locally: CNN/DailyMail val=200/test=200, SQuAD val=200/test=200, no overlap by construction. Same loader confirmed working on real Kaggle sessions too — all 4 baseline experiments loaded real CNN/SQuAD samples successfully. |
 | **Baseline inference** | ✅ Passed (Kaggle) | 100% | All 4 runs complete and clean: EXP-MIS-BASE-CNN, EXP-MIS-BASE-SQUAD, EXP-LLAMA-BASE-CNN, EXP-LLAMA-BASE-SQUAD (the one that hung on the first attempt). Load-once fix (see `experiments/common.py`) confirmed working on real hardware — no CPU-offload, no hang. Real numbers in `results/mis_results.csv` / `results/llama_results.csv` and `logs/experiment_tracking.csv`. Note: Llama-2-13B's SQuAD quality (F1 13.19) is notably lower than Mistral-7B's (F1 24.19) — plausibly because Llama-2-13b-hf is a non-instruction-tuned base model on zero-shot QA, not yet investigated further; worth a callout in the eventual report either way. |
 | **Experiment tracking** | ✅ In progress | 4/22 rows | `logs/experiment_tracking.csv` populated for all 4 Week 1 baselines; 18 rows still `pending` for Weeks 2-4 |
 | **Week 2-4 experiments** | ⬜ Not started | 0% | 22 experiments per `EXPERIMENT_MATRIX.md` |
@@ -66,12 +66,12 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 
 | Phase | Week(s) | Planned Hours | Used | Remaining | Status |
 |-------|---------|----------------|------|-----------|--------|
-| Setup + baseline | 1 | 2 | 12 + ⚠️TBD | ⚠️TBD | 🔴 Over budget — all 4 baselines now complete and clean (see Component Status above). 12h used in the first (partially-failed) session; today's rerun session on the fixed code succeeded but its actual GPU-hours haven't been reported yet — **placeholder, do not treat "12" as final for this phase**, update as soon as the real number is in |
+| Setup + baseline | 1 | 2 | ≥14.5 | ≤-12.5 | 🔴 Over budget by 7x the plan (2h planned → ≥14.5h actual). All 4 baselines now complete and clean (see Component Status above). Breakdown: 12h (session 1, 2026-08-13, partial failure — 3/4 completed, `EXP-LLAMA-BASE-SQUAD` hung, killed by 12h session cap) + 2.5h (session 3, 2026-08-14, load-once fix — all 4 clean, estimated from per-sample timing, not exact Kaggle accounting). **Not yet included:** a 3rd, intermediate Kaggle session between those two (the guard-only fix test, which correctly fired a fast `RuntimeError` on `EXP-LLAMA-BASE-SQUAD` instead of hanging) had real but unrecorded GPU-hours — true total is ≥14.5h, exact figure still needed. |
 | LoRA (Mistral only) | 2 | 4 | 0 | 4 | ⬜ Not started |
 | QLoRA (both models) | 3 | 9 | 0 | 9 | ⬜ Not started |
 | Quantization + ONNX | 4 | 6.4 | 0 | 6.4 | ⬜ Not started |
 | Buffer / reruns | 5 | 8 | 0 | 8 | ⬜ Reserve |
-| **TOTAL** | 1-5 | ~29.4 | 12 + ⚠️TBD | ⚠️TBD | 🔴 Setup+baseline phase already over its own 2h budget at 12h before today's rerun; today's additional hours still need to be added once known — see row above |
+| **TOTAL** | 1-5 | ~29.4 | ≥14.5 | ≤14.9 | 🔴 Setup+baseline alone has consumed ≥49% of the entire 5-phase 29.4h budget (planned share was ~7%). Still fits under the hard 30h/week cap on its own, but Week 2 (4h) + Week 3 (9h) + Week 4 (6.4h) planned on top would put the running total at ≥33.9h — over the 30h/week cap even before the missing 3rd-session hours are added. Flagging now per `CLAUDE.md` ("push back if GPU budget is tightening") rather than after it becomes a mid-Week-3 emergency; worth deciding explicitly whether Weeks 2-4 need to be spread across more than one week's quota. |
 
 Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they exist as slack if experiments run over.
 
@@ -180,6 +180,6 @@ Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they e
 
 **Decisions made:** Load-once-per-process architecture for all technique scripts (documented in `EXPERIMENT_MATRIX.md`/`CLAUDE.md` recovery procedures); `load_baseline_metrics()` takes the latest matching row, not the first
 
-**Blockers:** GPU-hours for the second (rerun) Kaggle session not yet recorded — GPU Budget Tracking's "12" figure is a placeholder pending that number
+**Blockers:** Session 3's (2026-08-14 rerun) GPU-hours now recorded (~2.5h, estimated from per-sample timing). Still open: the intermediate guard-fix-test session's exact GPU-hours were never captured — running total (≥14.5h) is a confirmed floor, not the true figure. Not blocking Week 2, but should be resolved before the Setup+baseline phase is called fully closed out.
 
 **Next session:** Week 2 — LoRA fine-tuning on Mistral-7B, both datasets

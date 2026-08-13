@@ -86,8 +86,8 @@ Verified offline (no GPU available locally): `py_compile` + import-checks pass o
 
 One result worth flagging for the eventual report, not a pipeline issue: Llama-2-13B's SQuAD quality (EM 3.0, F1 13.19) is notably worse than Mistral-7B's (EM 8.0, F1 24.19) despite being the bigger model — plausibly because `meta-llama/Llama-2-13b-hf` is a non-instruction-tuned base model and the zero-shot QA prompt format used here favors instruction-following. Not investigated further; noted rather than ignored per `CLAUDE.md`'s "document unexpected results" guidance.
 
-**GPU hours used this session:** not yet recorded — engineer, please provide the actual Kaggle GPU-hours for this rerun session so `PROJECT_STATE.md` GPU Budget Tracking can be finalized (currently marked ⚠️TBD rather than guessed)
+**GPU hours used this session:** ~2.5h (estimated from per-sample timing — Mistral CNN+SQuAD ~54min, Llama CNN+SQuAD ~95min; not exact Kaggle accounting). Combined with the 12h from the 2026-08-13 first attempt, the Setup+baseline phase total is **≥14.5h against a 2h plan** — see `PROJECT_STATE.md` GPU Budget Tracking for the full breakdown and the flag on Weeks 2-4 potentially pushing past the 30h/week cap. **Still open:** the intermediate guard-fix-test Kaggle session (the one that produced the fast `RuntimeError` instead of a hang, which is what led to diagnosing the real root cause) has real but never-recorded GPU-hours — the ≥14.5h figure is a confirmed floor, not the final number.
 
-**Next session:** Week 2 — LoRA fine-tuning on Mistral-7B (`experiments/mistral/02_lora.py`, now using `run_training_multi_dataset()`), both datasets. Verify config against `EXPERIMENT_MATRIX.md` technique #2 before running.
+**Next session:** Week 2 — LoRA fine-tuning on Mistral-7B (`experiments/mistral/02_lora.py`, now using `run_training_multi_dataset()`), both datasets. Verify config against `EXPERIMENT_MATRIX.md` technique #2 before running. Worth deciding explicitly whether the Setup+baseline overrun changes how Weeks 2-4 get scheduled against the weekly quota.
 
 ---
