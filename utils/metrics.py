@@ -31,9 +31,13 @@ def _get_rouge():
 
 
 def compute_rouge(predictions: list[str], references: list[str]) -> dict:
-    """Returns {'rouge1':..., 'rouge2':..., 'rougeL':...}, each 0-1."""
+    """Returns {'rouge1':..., 'rouge2':..., 'rougeL':...}, each 0-1.
+
+    Cast to native float: `evaluate`'s rouge metric returns numpy float64 scalars, and under
+    numpy>=2.0 str(np.float64(x)) reprs as "np.float64(x)" — which breaks the ast.literal_eval()
+    round-trip in load_baseline_metrics() once this dict is written to CSV and read back."""
     result = _get_rouge().compute(predictions=predictions, references=references)
-    return {k: result[k] for k in ("rouge1", "rouge2", "rougeL")}
+    return {k: float(result[k]) for k in ("rouge1", "rouge2", "rougeL")}
 
 
 def _normalize_text(s: str) -> str:

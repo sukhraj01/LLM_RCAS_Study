@@ -66,7 +66,7 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 
 | Phase | Week(s) | Planned Hours | Used | Remaining | Status |
 |-------|---------|----------------|------|-----------|--------|
-| Setup + baseline | 1 | 2 | 12 | -10 | 🔴 Over budget — 3/4 baselines completed, 1 failed (CPU-offload hang, killed by 12h session cap; see `logs/daily_standup.md` 2026-08-13 and fix in `experiments/common.py`) |
+| Setup + baseline | 1 | 2 | 12 | -10 | 🔴 Over budget — 3/4 baselines completed, 1 failed (CPU-offload hang, killed by 12h session cap; see `logs/daily_standup.md` 2026-08-13 and fix in `experiments/common.py`). Also: EXP-MIS-BASE-SQUAD's peak_vram_gb is flagged as likely contaminated by the same bug (not fatal for 7B, but not a clean number) — both it and EXP-LLAMA-BASE-SQUAD need a rerun before the phase is actually clean. |
 | LoRA (Mistral only) | 2 | 4 | 0 | 4 | ⬜ Not started |
 | QLoRA (both models) | 3 | 9 | 0 | 9 | ⬜ Not started |
 | Quantization + ONNX | 4 | 6.4 | 0 | 6.4 | ⬜ Not started |

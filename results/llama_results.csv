@@ -1,0 +1,2 @@
+exp_id,model,technique,dataset,training_time_hrs,peak_vram_gb,inference_latency_ms,quality_metrics,status,notes,quality_degradation_percent,speedup_factor,validation_issues
+EXP-LLAMA-BASE-CNN,LLAMA,baseline,CNN,,12.39,15065.6,"{'rouge1': 0.25078525030817, 'rouge2': 0.08700461741796214, 'rougeL': 0.16905006023025135}",completed,,0.0,1.0,
