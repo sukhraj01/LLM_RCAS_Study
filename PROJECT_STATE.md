@@ -71,7 +71,7 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 | QLoRA (both models) | 3 | 9 | 0 | 9 | ⬜ Not started |
 | Quantization + ONNX | 4 | 6.4 | 0 | 6.4 | ⬜ Not started |
 | Buffer / reruns | 5 | 8 | 0 | 8 | ⬜ Reserve |
-| **TOTAL** | 1-5 | ~29.4 | ≥14.5 | ≤14.9 | 🔴 Setup+baseline alone has consumed ≥49% of the entire 5-phase 29.4h budget (planned share was ~7%). Still fits under the hard 30h/week cap on its own, but Week 2 (4h) + Week 3 (9h) + Week 4 (6.4h) planned on top would put the running total at ≥33.9h — over the 30h/week cap even before the missing 3rd-session hours are added. Flagging now per `CLAUDE.md` ("push back if GPU budget is tightening") rather than after it becomes a mid-Week-3 emergency; worth deciding explicitly whether Weeks 2-4 need to be spread across more than one week's quota. |
+| **TOTAL** | 1-5 | ~29.4 | ≥14.5 | ≤14.9 | 🟡 Setup+baseline alone used ≥49% of the entire 5-phase 29.4h *estimate* (planned share was ~7%) — a real miss on the phase-level plan, worth remembering when estimating Weeks 2-4. **Not a cap risk**, though: the 30h figure is a per-week quota that refreshes every Sunday, not a shared multi-phase pool (confirmed by the engineer) — Setup+baseline's ≥14.5h all landed inside a single week and is comfortably under that week's 30h, and each of Weeks 2-4 gets its own fresh 30h regardless of what earlier weeks used. |
 
 Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they exist as slack if experiments run over.
 
