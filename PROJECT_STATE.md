@@ -40,8 +40,8 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 | Component | Status | Progress | Notes |
 |-----------|--------|----------|-------|
 | **Repo structure** | ⬜ Not started | 0% | Needs creating |
-| **Environment setup** | ⬜ Not started | 0% | Kaggle notebook + local venv, pinned versions |
-| **Data pipeline** | ⬜ Not started | 0% | CNN/DailyMail, SQuAD — smaller samples than original plan (see below) |
+| **Environment setup** | ✅ Passed (local) | 100% local / Kaggle not yet run | `.venv` (Python 3.11) created, `pip install -r requirements.txt` succeeds after fixing an `optimum[onnxruntime-gpu]`/macOS wheel conflict (see 2026-08-13 ai-usage-log). HF_TOKEN verified present and non-placeholder in `.env`. Kaggle-side GPU install (`optimum[onnxruntime-gpu]` extra step, actual torch/CUDA) not yet verified — no GPU on this machine. |
+| **Data pipeline** | ✅ Passed (local) | 100% | `python -m utils.data_loader` sanity check passed: CNN/DailyMail val=200/test=200, SQuAD val=200/test=200, no overlap by construction (both datasets). |
 | **Baseline inference** | ⬜ Not started | 0% | 4 runs (2 models × 2 datasets) |
 | **Experiment tracking** | ⬜ Not started | 0% | `logs/experiment_tracking.csv` template needed |
 | **Week 2-4 experiments** | ⬜ Not started | 0% | 22 experiments per `EXPERIMENT_MATRIX.md` |
@@ -66,12 +66,12 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 
 | Phase | Week(s) | Planned Hours | Used | Remaining | Status |
 |-------|---------|----------------|------|-----------|--------|
-| Setup + baseline | 1 | 2 | 0 | 2 | ⬜ Not started |
+| Setup + baseline | 1 | 2 | 12 | -10 | 🔴 Over budget — 3/4 baselines completed, 1 failed (CPU-offload hang, killed by 12h session cap; see `logs/daily_standup.md` 2026-08-13 and fix in `experiments/common.py`) |
 | LoRA (Mistral only) | 2 | 4 | 0 | 4 | ⬜ Not started |
 | QLoRA (both models) | 3 | 9 | 0 | 9 | ⬜ Not started |
 | Quantization + ONNX | 4 | 6.4 | 0 | 6.4 | ⬜ Not started |
 | Buffer / reruns | 5 | 8 | 0 | 8 | ⬜ Reserve |
-| **TOTAL** | 1-5 | ~29.4 | 0 | 29.4 | ⬜ Not started |
+| **TOTAL** | 1-5 | ~29.4 | 12 | 17.4 | 🔴 Setup+baseline phase over its own budget by 10h; total plan still has 17.4h of the 29.4h left, but the buffer week (8h) has effectively already been partly consumed by this overrun — flagging per CLAUDE.md, not silently absorbing it |
 
 Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they exist as slack if experiments run over.
 

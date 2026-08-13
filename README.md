@@ -30,6 +30,7 @@ cp .env.example .env             # then fill in HF_TOKEN
    !git clone <your-repo-url> repo
    %cd repo
    !pip install -q -r requirements.txt --no-deps  # --no-deps avoids fighting Kaggle's preinstalled torch/CUDA
+   !pip install -U "optimum[onnxruntime-gpu]"  # requirements.txt only pulls CPU onnxruntime (no macOS wheel for -gpu); Kaggle needs this extra step for GPU-accelerated ONNX experiments
    ```
 4. Run the experiment script for whatever's next in `PROJECT_STATE.md` → "What's Next"
 5. Before ending the session: follow `KAGGLE_SYNC.md` — download results, commit, update `PROJECT_STATE.md`

@@ -14,6 +14,7 @@ wrong. Log whatever you fix in knowledge/ai-usage-log/, per CLAUDE.md.
 
 import ast
 import csv
+import gc
 import os
 import time
 
@@ -120,6 +121,31 @@ def apply_lora(model, lora_hparams: dict):
     return get_peft_model(model, peft_config)
 
 
+def _assert_fully_on_gpu(model, model_key: str):
+    """device_map="auto" can silently spill layers to CPU (or 'meta') instead of erroring
+    when a model doesn't fully fit in free VRAM — .generate() then keeps running, just
+    slowly enough to burn an entire 12h Kaggle session without producing output. Fail loudly
+    and immediately instead. See EXPERIMENT_MATRIX.md "Recovery Procedures" for what to do
+    when this fires."""
+    bad_devices = {p.device.type for p in model.parameters() if p.device.type != "cuda"}
+    if bad_devices:
+        raise RuntimeError(
+            f"Model {model_key} partially offloaded to {sorted(bad_devices)} (device_map "
+            "couldn't fit it on GPU) — aborting instead of running for hours. Free GPU memory "
+            "(check no earlier model in this process was left unreleased) or reduce batch/seq "
+            "length before retrying."
+        )
+
+
+def _release_model(model):
+    """Explicit cleanup between successive model loads in the same process — without this,
+    a leftover model can leave enough VRAM occupied that the next device_map="auto" load
+    can't fit fully on GPU and silently falls back to CPU offload (see _assert_fully_on_gpu)."""
+    del model
+    gc.collect()
+    torch.cuda.empty_cache()
+
+
 # ---------------------------------------------------------------------------
 # Inference + quality
 # ---------------------------------------------------------------------------
@@ -128,13 +154,17 @@ def apply_lora(model, lora_hparams: dict):
 def generate_predictions(model, tokenizer, examples: list[dict], dataset_key: str, max_new_tokens=128):
     model.eval()
     predictions = []
+    start = time.perf_counter()
     with torch.no_grad():
-        for ex in examples:
+        for i, ex in enumerate(examples):
             prompt, _ = format_example(dataset_key, ex)
             inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MAX_SEQ_LENGTH).to(model.device)
             out = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
             text = tokenizer.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
             predictions.append(text.strip())
+            if (i + 1) % 20 == 0:
+                avg_s = (time.perf_counter() - start) / (i + 1)
+                print(f"{i + 1}/{len(examples)} done, {avg_s:.2f}s/sample avg")
     return predictions
 
 
@@ -211,12 +241,15 @@ def run_inference_only_experiment(exp_id: str, model_key: str, dataset_key: str,
     test_examples = list(_loader.load(dataset_key, "test"))
 
     model, tokenizer = load_model_and_tokenizer(model_key, quant_config)
+    _assert_fully_on_gpu(model, model_key)
 
     with LatencyVRAMTracker() as tracker:
         predictions = generate_predictions(model, tokenizer, test_examples, dataset_key)
 
-    quality = evaluate_quality(dataset_key, predictions, test_examples)
     latency_ms = tracker.latency_ms(len(test_examples))
+    _release_model(model)
+
+    quality = evaluate_quality(dataset_key, predictions, test_examples)
 
     row = {
         "training_time_hrs": None,
@@ -253,6 +286,7 @@ def run_training_experiment(exp_id: str, model_key: str, dataset_key: str, techn
 
     model, tokenizer = load_model_and_tokenizer(model_key, quant_config)
     model = apply_lora(model, lora_hparams)
+    _assert_fully_on_gpu(model, model_key)
     model.print_trainable_parameters()
 
     def tokenize_fn(example):
@@ -291,8 +325,10 @@ def run_training_experiment(exp_id: str, model_key: str, dataset_key: str, techn
 
     with LatencyVRAMTracker() as tracker:
         predictions = generate_predictions(model, tokenizer, test_examples, dataset_key)
-    quality = evaluate_quality(dataset_key, predictions, test_examples)
     latency_ms = tracker.latency_ms(len(test_examples))
+    _release_model(model)
+
+    quality = evaluate_quality(dataset_key, predictions, test_examples)
 
     row = {
         "training_time_hrs": round(training_time_hrs, 2),

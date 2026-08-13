@@ -16,7 +16,12 @@ sentencepiece>=0.2.0
 huggingface_hub>=0.22.0
 
 # Inference optimization
-optimum[onnxruntime-gpu]>=1.19.0
+# NOTE: onnxruntime-gpu has no macOS wheel (Linux/Windows-CUDA only), so local dev
+# installs plain CPU onnxruntime here. On Kaggle, run an extra install step after
+# requirements.txt to get GPU-accelerated ONNX Runtime for the ONNX experiments:
+#   pip install -U "optimum[onnxruntime-gpu]"
+# (see README.md Kaggle setup section)
+optimum[onnxruntime]>=1.19.0
 onnx>=1.16.0
 
 # API + dashboard (local/deployment work, Weeks 6-9)

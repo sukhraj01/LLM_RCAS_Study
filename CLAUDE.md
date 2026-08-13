@@ -255,6 +255,12 @@ When things fail, follow these procedures before asking for help:
 2. On restart, resume from last checkpoint
 3. If no checkpoint exists: restart with a smaller sample as validation, then scale back up
 
+**Model Silently CPU-Offloaded (Hang, No Error):**
+1. Check model parameter device placement immediately after every `from_pretrained(..., device_map="auto")` call (and after applying LoRA adapters) — if anything isn't on `cuda`, fail immediately with a clear error instead of letting `.generate()` run for hours
+2. Make sure any model loaded earlier in the same process was fully released first (`del model; gc.collect(); torch.cuda.empty_cache()`) — a leftover model from an earlier experiment in the same script run is the most common cause of a later model not fitting on GPU
+3. If it still offloads after a clean process: reduce batch size / `max_seq_length`, or split model loads across separate script invocations
+4. Print periodic progress during generation (every N samples) so a stuck run is visible in the Kaggle log instead of going silent — silence for hours is itself a signal something is wrong, not just slow
+
 **Model Download Failed:**
 1. Retry with exponential backoff (1s, 2s, 4s, 8s, 16s)
 2. If still failing: download locally first using HuggingFace CLI
