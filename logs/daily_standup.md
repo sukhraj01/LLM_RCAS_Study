@@ -91,3 +91,17 @@ One result worth flagging for the eventual report, not a pipeline issue: Llama-2
 **Next session:** Week 2 — LoRA fine-tuning on Mistral-7B (`experiments/mistral/02_lora.py`, now using `run_training_multi_dataset()`), both datasets. Verify config against `EXPERIMENT_MATRIX.md` technique #2 before running. Worth deciding explicitly whether the Setup+baseline overrun changes how Weeks 2-4 get scheduled against the weekly quota.
 
 ---
+
+### 2026-08-14 — Kaggle (LoRA env fix)
+
+**Planned:** Week 2 — LoRA fine-tuning on Mistral-7B (`experiments/mistral/02_lora.py`), both datasets.
+
+**Completed:** N/A — session blocked before training started; see Issues.
+
+**Issues:** `get_peft_model()` raised `ImportError` mentioning `torchao` version requirements when applying the LoRA adapter. Root cause: Kaggle's base image ships `torchao 0.10.0`, but `peft`'s LoRA dispatcher (`dispatch_torchao`) requires `torchao>=0.16.0` to import cleanly, even though this project's QLoRA path is bitsandbytes-based and never imports torchao directly. Fix: `!pip install -U torchao` before running any LoRA/QLoRA script. Added as a required setup line in `README.md` Kaggle setup section and as a new entry in `EXPERIMENT_MATRIX.md` Recovery Procedures. Full detail in `knowledge/ai-usage-log/2026-08-14_torchao-lora-importerror.md`.
+
+**GPU hours used this session:** 0.0 (blocked before any training ran)
+
+**Next session:** Rerun `experiments/mistral/02_lora.py` with `torchao` upgraded per the new README step — first real attempt at Week 2 LoRA training.
+
+---

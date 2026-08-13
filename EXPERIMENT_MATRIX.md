@@ -152,3 +152,5 @@ Baseline is always the fp16 zero-shot run for that model+dataset. Every other te
 **Kaggle session timeout (12h cap):** checkpoint every 200 steps; on restart, resume from last checkpoint rather than restarting the experiment.
 
 **Weekly quota (30h) about to be exceeded:** stop, do not silently shrink the dataset or skip epochs — that invalidates comparability. Log it as a blocker in `PROJECT_STATE.md` and decide explicitly whether to wait for quota reset or move an experiment to next week.
+
+**`ImportError` mentioning torchao during `get_peft_model()` / LoRA apply:** Kaggle's base image ships `torchao 0.10.0`, but `peft`'s LoRA dispatcher (`get_peft_model` → `dispatch_torchao`) raises `ImportError` unless `torchao>=0.16.0` is installed — even though this project's QLoRA is bitsandbytes-based and never imports torchao directly. Fix: `!pip install -U torchao` before running any LoRA/QLoRA script (see `README.md` Kaggle setup).
