@@ -98,10 +98,14 @@ One result worth flagging for the eventual report, not a pipeline issue: Llama-2
 
 **Completed:** N/A — session blocked before training started; see Issues.
 
-**Issues:** `get_peft_model()` raised `ImportError` mentioning `torchao` version requirements when applying the LoRA adapter. Root cause: Kaggle's base image ships `torchao 0.10.0`, but `peft`'s LoRA dispatcher (`dispatch_torchao`) requires `torchao>=0.16.0` to import cleanly, even though this project's QLoRA path is bitsandbytes-based and never imports torchao directly. Fix: `!pip install -U torchao` before running any LoRA/QLoRA script. Added as a required setup line in `README.md` Kaggle setup section and as a new entry in `EXPERIMENT_MATRIX.md` Recovery Procedures. Full detail in `knowledge/ai-usage-log/2026-08-14_torchao-lora-importerror.md`.
+**Issues:**
 
-**GPU hours used this session:** 0.0 (blocked before any training ran)
+1. `get_peft_model()` raised `ImportError` mentioning `torchao` version requirements when applying the LoRA adapter. Root cause: Kaggle's base image ships `torchao 0.10.0`, but `peft`'s LoRA dispatcher (`dispatch_torchao`) requires `torchao>=0.16.0` to import cleanly, even though this project's QLoRA path is bitsandbytes-based and never imports torchao directly. Fix: `!pip install -U torchao` before running any LoRA/QLoRA script. Added as a required setup line in `README.md` Kaggle setup section and as a new entry in `EXPERIMENT_MATRIX.md` Recovery Procedures. Full detail in `knowledge/ai-usage-log/2026-08-14_torchao-lora-importerror.md`.
 
-**Next session:** Rerun `experiments/mistral/02_lora.py` with `torchao` upgraded per the new README step — first real attempt at Week 2 LoRA training.
+2. After the torchao fix, `apply_lora()` → `get_peft_model()` succeeded (3.4M trainable / 7.2B total params, 0.047% — looked right), training started, `use_cache` got disabled for gradient checkpointing as expected, then the very first `trainer.train()` backward call failed: `UserWarning: None of the inputs have requires_grad=True. Gradients will be None` / `RuntimeError: element 0 of tensors does not require grad and does not have a grad_fn`. Root cause: standard PEFT + gradient-checkpointing gotcha — with only LoRA adapter params trainable and gradient checkpointing on, the frozen base model's input embeddings output `requires_grad=False`, so checkpointing has no tensor to build a backward graph from and the graph never reaches the trainable adapter weights. Fix: `model.enable_input_require_grads()` added right after `get_peft_model()` returns inside `apply_lora()` in `experiments/common.py`, so it applies uniformly to every technique that calls `apply_lora()` (LoRA, QLoRA — Mistral and Llama both). Verified offline (`py_compile` + import check; no GPU available locally) — not yet tested on real hardware. Added as a new entry in `EXPERIMENT_MATRIX.md` Recovery Procedures. Full detail in `knowledge/ai-usage-log/2026-08-14_gradient-checkpointing-requires-grad.md`.
+
+**GPU hours used this session:** 0.0 (blocked before any training completed a step)
+
+**Next session:** Rerun `experiments/mistral/02_lora.py` with both fixes in place (torchao upgraded, `enable_input_require_grads()` in `apply_lora()`) — first real attempt at Week 2 LoRA training all the way through a backward pass.
 
 ---

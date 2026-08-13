@@ -119,7 +119,13 @@ def apply_lora(model, lora_hparams: dict):
         bias=lora_hparams["bias"],
         task_type=lora_hparams["task_type"],
     )
-    return get_peft_model(model, peft_config)
+    model = get_peft_model(model, peft_config)
+    # With only adapter params trainable and gradient checkpointing on, the frozen base
+    # model's input embeddings output requires_grad=False, so checkpointing has no tensor
+    # to build a backward graph from and the first backward pass fails with "None of the
+    # inputs have requires_grad=True". See EXPERIMENT_MATRIX.md Recovery Procedures.
+    model.enable_input_require_grads()
+    return model
 
 
 def _assert_fully_on_gpu(model, model_key: str):
