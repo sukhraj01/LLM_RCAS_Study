@@ -12,7 +12,7 @@ EXP-MIS-4BIT-SQUAD,Mistral-7B,4bit,SQuAD,pending,,,,,
 EXP-MIS-ONNX-CNN,Mistral-7B,onnx,CNN,pending,,,,,
 EXP-MIS-ONNX-SQUAD,Mistral-7B,onnx,SQuAD,pending,,,,,
 EXP-LLAMA-BASE-CNN,Llama-2-13B,baseline,CNN,completed,,12.39,,,latency 15065.6ms; ROUGE1 0.251/ROUGE2 0.087/ROUGEL 0.169 - full row in results/llama_results.csv. First model load in that process (before the un-released-model bug caused EXP-LLAMA-BASE-SQUAD's hang) - this VRAM number should be clean
-EXP-LLAMA-BASE-SQUAD,Llama-2-13B,baseline,SQuAD,failed,,,,,CPU-offload hang (device_map fell back to CPU on 2nd model load in same process) - killed by 12h session cap; fix in experiments/common.py (device guard + explicit model release); will rerun
+EXP-LLAMA-BASE-SQUAD,Llama-2-13B,baseline,SQuAD,failed,,,,,"Device-placement guard correctly caught the CPU-offload (fast RuntimeError instead of the original 5h+ silent hang) once added, but root cause was CUDA allocator fragmentation from reloading the model a 2nd time in-process, not just missing cleanup - del/gc/empty_cache alone was necessary but not sufficient for a 13B model. Real fix: experiments/mistral/01_baseline.py and experiments/llama/01_baseline.py now load the model ONCE per process and loop datasets in-memory via run_inference_multi_dataset() - see EXPERIMENT_MATRIX.md Recovery Procedures. Will rerun."
 EXP-LLAMA-QLORA-CNN,Llama-2-13B,qlora,CNN,pending,,,,,
 EXP-LLAMA-QLORA-SQUAD,Llama-2-13B,qlora,SQuAD,pending,,,,,
 EXP-LLAMA-8BIT-CNN,Llama-2-13B,8bit,CNN,pending,,,,,

@@ -11,15 +11,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for `utils`/`experiments` imports
 
-from experiments.common import run_inference_only_experiment
+from experiments.common import run_inference_multi_dataset
 
 if __name__ == "__main__":
-    for dataset_key in ("CNN", "SQUAD"):
-        run_inference_only_experiment(
-            exp_id=f"EXP-MIS-BASE-{dataset_key}",
-            model_key="MIS",
-            dataset_key=dataset_key,
-            technique="baseline",
-            quant_config=None,
-            baseline_row=None,  # this IS the baseline
-        )
+    # Loads Mistral-7B ONCE and loops both datasets in-memory (see EXPERIMENT_MATRIX.md
+    # "Model silently CPU-offloaded / hangs" — reloading per dataset in the same process is
+    # what caused EXP-LLAMA-BASE-SQUAD's hang; this is the fix, not the workaround).
+    run_inference_multi_dataset(
+        model_key="MIS",
+        technique="baseline",
+        dataset_keys=["CNN", "SQUAD"],
+        quant_config=None,
+        baseline_lookup=lambda dataset_key: None,  # this IS the baseline
+    )

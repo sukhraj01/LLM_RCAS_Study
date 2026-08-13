@@ -12,24 +12,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from experiments.common import load_baseline_metrics, run_training_experiment
+from experiments.common import require_baseline_metrics, run_training_multi_dataset
 from utils.config import CHECKPOINTS_DIR, get_qlora_config
 
 if __name__ == "__main__":
     qlora_hparams = get_qlora_config("LLAMA")  # smaller batch, more accumulation than Mistral
-    for dataset_key in ("CNN", "SQUAD"):
-        baseline = load_baseline_metrics("LLAMA", dataset_key)
-        if baseline is None:
-            raise RuntimeError(
-                f"No baseline found for LLAMA/{dataset_key} — run experiments/llama/01_baseline.py first."
-            )
-        run_training_experiment(
-            exp_id=f"EXP-LLAMA-QLORA-{dataset_key}",
-            model_key="LLAMA",
-            dataset_key=dataset_key,
-            technique="qlora",
-            lora_hparams=qlora_hparams,
-            quant_config=qlora_hparams,
-            output_dir=os.path.join(CHECKPOINTS_DIR, f"llama_qlora_{dataset_key.lower()}"),
-            baseline_row=baseline,
-        )
+    # Loads Llama-2-13B (4-bit NF4 base) ONCE, applies a fresh LoRA adapter per dataset — this
+    # is exactly the pattern that would otherwise hit the same CPU-offload failure the baseline
+    # script hit (see run_training_multi_dataset docstring).
+    run_training_multi_dataset(
+        model_key="LLAMA",
+        technique="qlora",
+        dataset_keys=["CNN", "SQUAD"],
+        lora_hparams=qlora_hparams,
+        quant_config=qlora_hparams,
+        output_dir_fn=lambda dataset_key: os.path.join(CHECKPOINTS_DIR, f"llama_qlora_{dataset_key.lower()}"),
+        baseline_lookup=lambda dataset_key: require_baseline_metrics("LLAMA", dataset_key),
+    )

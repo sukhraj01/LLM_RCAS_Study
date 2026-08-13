@@ -13,15 +13,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from experiments.common import run_inference_only_experiment
+from experiments.common import run_inference_multi_dataset
 
 if __name__ == "__main__":
-    for dataset_key in ("CNN", "SQUAD"):
-        run_inference_only_experiment(
-            exp_id=f"EXP-LLAMA-BASE-{dataset_key}",
-            model_key="LLAMA",
-            dataset_key=dataset_key,
-            technique="baseline",
-            quant_config=None,
-            baseline_row=None,
-        )
+    # Loads Llama-2-13B ONCE and loops both datasets in-memory. This is the actual fix for the
+    # CPU-offload hang on EXP-LLAMA-BASE-SQUAD — reloading a second 13B instance in the same
+    # process was the root cause (allocator fragmentation), not just missing cleanup; see
+    # EXPERIMENT_MATRIX.md "Model silently CPU-offloaded / hangs".
+    run_inference_multi_dataset(
+        model_key="LLAMA",
+        technique="baseline",
+        dataset_keys=["CNN", "SQUAD"],
+        quant_config=None,
+        baseline_lookup=lambda dataset_key: None,
+    )

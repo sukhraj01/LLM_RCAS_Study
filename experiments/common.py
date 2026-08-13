@@ -17,6 +17,7 @@ import csv
 import gc
 import os
 import time
+from typing import Callable
 
 import torch
 from datasets import Dataset
@@ -230,25 +231,43 @@ def load_baseline_metrics(model_key: str, dataset_key: str) -> dict | None:
     return None
 
 
+def require_baseline_metrics(model_key: str, dataset_key: str) -> dict:
+    """Same as load_baseline_metrics but fails fast if the baseline hasn't run yet, instead of
+    letting a technique script silently proceed without a comparison. Use this (not
+    load_baseline_metrics directly) as the baseline_lookup passed to the multi-dataset
+    orchestrators below for every technique except baseline itself."""
+    baseline = load_baseline_metrics(model_key, dataset_key)
+    if baseline is None:
+        raise RuntimeError(
+            f"No baseline found for {model_key}/{dataset_key} — run the baseline script first."
+        )
+    return baseline
+
+
+# Exp ID convention departs from the technique string in exactly one case ("baseline" -> "BASE");
+# everything else is technique.upper(). See run_inference_multi_dataset / run_training_multi_dataset.
+_EXP_ID_TECHNIQUE_TOKEN = {"baseline": "BASE"}
+
+
 # ---------------------------------------------------------------------------
-# High-level experiment runners — called by the thin per-technique scripts
+# High-level experiment runners — called by the multi-dataset orchestrators below,
+# never directly by the per-technique scripts (see EXPERIMENT_MATRIX.md Recovery
+# Procedures: "Model silently CPU-offloaded / hangs" for why).
 # ---------------------------------------------------------------------------
 
 
-def run_inference_only_experiment(exp_id: str, model_key: str, dataset_key: str, technique: str,
-                                   quant_config: dict | None = None, baseline_row: dict | None = None):
-    """For baseline, 8bit, 4bit — no training, just load + measure + evaluate."""
+def run_inference_only_experiment(model, tokenizer, exp_id: str, model_key: str, dataset_key: str,
+                                   technique: str, baseline_row: dict | None = None):
+    """For baseline, 8bit, 4bit — measure + evaluate on an ALREADY-LOADED model/tokenizer for
+    ONE dataset. Caller (run_inference_multi_dataset) owns loading, device-placement checking,
+    and releasing the model — this function never touches those, so it can be called once per
+    dataset against the same model instance without reloading."""
     test_examples = list(_loader.load(dataset_key, "test"))
-
-    model, tokenizer = load_model_and_tokenizer(model_key, quant_config)
-    _assert_fully_on_gpu(model, model_key)
 
     with LatencyVRAMTracker() as tracker:
         predictions = generate_predictions(model, tokenizer, test_examples, dataset_key)
 
     latency_ms = tracker.latency_ms(len(test_examples))
-    _release_model(model)
-
     quality = evaluate_quality(dataset_key, predictions, test_examples)
 
     row = {
@@ -276,17 +295,44 @@ def run_inference_only_experiment(exp_id: str, model_key: str, dataset_key: str,
     return {"quality": quality, "latency_ms": latency_ms, "vram_gb": tracker.peak_vram_gb}
 
 
-def run_training_experiment(exp_id: str, model_key: str, dataset_key: str, technique: str,
-                             lora_hparams: dict, quant_config: dict | None, output_dir: str,
+def run_inference_multi_dataset(model_key: str, technique: str, dataset_keys: list[str],
+                                 quant_config: dict | None,
+                                 baseline_lookup: Callable[[str], dict | None]):
+    """Loads the model ONCE for every dataset in dataset_keys, checks device placement ONCE,
+    then releases ONCE at the end — this is the actual fix for the CPU-offload/allocator-
+    fragmentation failure that hit EXP-LLAMA-BASE-SQUAD (see EXPERIMENT_MATRIX.md "Model
+    silently CPU-offloaded / hangs"). Reloading a model a second time in the same process was
+    the root cause; explicit del/gc.collect()/empty_cache() alone was necessary but not
+    sufficient to make a second Llama-2-13B load reliably fit."""
+    model, tokenizer = load_model_and_tokenizer(model_key, quant_config)
+    _assert_fully_on_gpu(model, model_key)
+
+    token = _EXP_ID_TECHNIQUE_TOKEN.get(technique, technique.upper())
+    results = {}
+    try:
+        for dataset_key in dataset_keys:
+            exp_id = f"EXP-{model_key}-{token}-{dataset_key}"
+            results[dataset_key] = run_inference_only_experiment(
+                model, tokenizer, exp_id, model_key, dataset_key, technique,
+                baseline_row=baseline_lookup(dataset_key),
+            )
+    finally:
+        _release_model(model)
+
+    return results
+
+
+def run_training_experiment(model, tokenizer, exp_id: str, model_key: str, dataset_key: str,
+                             technique: str, lora_hparams: dict, output_dir: str, quantized: bool,
                              baseline_row: dict | None = None):
-    """For LoRA and QLoRA — trains adapters, then evaluates on test set the same way
-    run_inference_only_experiment does, so results are directly comparable."""
+    """For LoRA and QLoRA — trains + evaluates on an ALREADY LoRA-wrapped model/tokenizer for
+    ONE dataset. Caller (run_training_multi_dataset) owns loading the base model once, applying
+    a FRESH adapter per dataset, and releasing the base model once at the end — this function
+    only trains whatever adapter it's handed, so it stays correct whether that adapter is fresh
+    or (if ever called directly) reused."""
     train_examples = list(_loader.load(dataset_key, "train"))
     test_examples = list(_loader.load(dataset_key, "test"))
 
-    model, tokenizer = load_model_and_tokenizer(model_key, quant_config)
-    model = apply_lora(model, lora_hparams)
-    _assert_fully_on_gpu(model, model_key)
     model.print_trainable_parameters()
 
     def tokenize_fn(example):
@@ -306,7 +352,7 @@ def run_training_experiment(exp_id: str, model_key: str, dataset_key: str, techn
         gradient_checkpointing=lora_hparams["gradient_checkpointing"],
         save_steps=200,
         logging_steps=20,
-        fp16=not quant_config,  # bf16 compute already set inside 4-bit config when quantized
+        fp16=not quantized,  # bf16 compute already set inside 4-bit config when quantized
         report_to=[],
     )
 
@@ -326,7 +372,6 @@ def run_training_experiment(exp_id: str, model_key: str, dataset_key: str, techn
     with LatencyVRAMTracker() as tracker:
         predictions = generate_predictions(model, tokenizer, test_examples, dataset_key)
     latency_ms = tracker.latency_ms(len(test_examples))
-    _release_model(model)
 
     quality = evaluate_quality(dataset_key, predictions, test_examples)
 
@@ -351,3 +396,35 @@ def run_training_experiment(exp_id: str, model_key: str, dataset_key: str, techn
 
     save_result(exp_id, model_key, technique, dataset_key, row)
     return {"quality": quality, "latency_ms": latency_ms, "vram_gb": tracker.peak_vram_gb}
+
+
+def run_training_multi_dataset(model_key: str, technique: str, dataset_keys: list[str],
+                                lora_hparams: dict, quant_config: dict | None,
+                                output_dir_fn: Callable[[str], str],
+                                baseline_lookup: Callable[[str], dict | None]):
+    """Loads the base model ONCE, then for each dataset: applies a FRESH LoRA adapter (so
+    datasets never train on top of each other's adapter weights — that would silently
+    contaminate the comparison), trains + evaluates, saves the adapter, then strips it back to
+    the clean base model via PeftModel.unload() (removes the adapter in place, no reload from
+    disk) before the next dataset. The base model is released once, after the whole loop — this
+    is the same "load once per process" fix as run_inference_multi_dataset, applied to training
+    so it doesn't hit Llama-2-13B QLoRA in Week 3 the same way it hit the Llama baseline."""
+    base_model, tokenizer = load_model_and_tokenizer(model_key, quant_config)
+    _assert_fully_on_gpu(base_model, model_key)
+
+    token = _EXP_ID_TECHNIQUE_TOKEN.get(technique, technique.upper())
+    results = {}
+    try:
+        for dataset_key in dataset_keys:
+            exp_id = f"EXP-{model_key}-{token}-{dataset_key}"
+            adapted_model = apply_lora(base_model, lora_hparams)
+            results[dataset_key] = run_training_experiment(
+                adapted_model, tokenizer, exp_id, model_key, dataset_key, technique,
+                lora_hparams, output_dir_fn(dataset_key), quantized=bool(quant_config),
+                baseline_row=baseline_lookup(dataset_key),
+            )
+            base_model = adapted_model.unload()  # strip this dataset's adapter, back to clean base
+    finally:
+        _release_model(base_model)
+
+    return results

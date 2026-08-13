@@ -256,9 +256,9 @@ When things fail, follow these procedures before asking for help:
 3. If no checkpoint exists: restart with a smaller sample as validation, then scale back up
 
 **Model Silently CPU-Offloaded (Hang, No Error):**
-1. Check model parameter device placement immediately after every `from_pretrained(..., device_map="auto")` call (and after applying LoRA adapters) — if anything isn't on `cuda`, fail immediately with a clear error instead of letting `.generate()` run for hours
-2. Make sure any model loaded earlier in the same process was fully released first (`del model; gc.collect(); torch.cuda.empty_cache()`) — a leftover model from an earlier experiment in the same script run is the most common cause of a later model not fitting on GPU
-3. If it still offloads after a clean process: reduce batch size / `max_seq_length`, or split model loads across separate script invocations
+1. Check model parameter device placement immediately after every `from_pretrained(..., device_map="auto")` call (and after applying LoRA adapters) — if anything isn't on `cuda`, fail immediately with a clear error instead of letting `.generate()` run for hours. This guard is a safety net, not a substitute for step 2.
+2. **Never reload a model in the same process — load once, loop datasets in-memory, release once.** `del model; gc.collect(); torch.cuda.empty_cache()` alone is *necessary but not sufficient*: on a 13B model, a second in-process load can still fail to fit even after "releasing" the first one, because the failure is CUDA allocator fragmentation, not literal non-release. `experiments/common.py`'s `run_inference_multi_dataset()` / `run_training_multi_dataset()` are the pattern — one model load per process, looped over all of that technique's datasets. For training, apply a fresh adapter per dataset and strip it with `PeftModel.unload()` between datasets rather than reloading the base model.
+3. If it still offloads after a clean, load-once process: reduce batch size / `max_seq_length`, or fall back to splitting model loads across separate script invocations (one per dataset)
 4. Print periodic progress during generation (every N samples) so a stuck run is visible in the Kaggle log instead of going silent — silence for hours is itself a signal something is wrong, not just slow
 
 **Model Download Failed:**

@@ -57,3 +57,21 @@ While merging the real numbers, two more issues surfaced (not requested, found b
 **Next session:** Rerun EXP-LLAMA-BASE-SQUAD and EXP-MIS-BASE-SQUAD on Kaggle with the fixed `common.py`/`metrics.py` (should now either complete cleanly or fail loudly and fast instead of hanging/silently inflating VRAM). Then proceed to Week 2 (LoRA, Mistral-7B) once the baseline phase is actually clean.
 
 ---
+
+### 2026-08-13 — Local (follow-up: real root cause for the CPU-offload hang)
+
+**Planned:** The device-placement guard from the previous entry worked (fast `RuntimeError` instead of a silent hang), but engineer determined it was treating a symptom — every technique script reloads the model once per dataset in the same process, and Llama-2-13B's second in-process load reliably fails even after explicit `del`/`gc.collect()`/`empty_cache()`, most likely CUDA allocator fragmentation rather than literal non-release (confirmed: a fresh process per dataset always works; Mistral-7B survives a second in-process load, Llama-2-13B doesn't). Restructure so each process loads its model once and loops datasets in-memory instead.
+
+**Completed:** `experiments/common.py` split into already-loaded-model runners (`run_inference_only_experiment`, `run_training_experiment`) plus new orchestrators `run_inference_multi_dataset()` / `run_training_multi_dataset()` that load once, assert placement once, loop all of a technique's datasets, and release once. All 9 dependent scripts (`experiments/mistral/01–05`, `experiments/llama/01,02,03,04`) updated to call the orchestrators instead of looping the old per-dataset functions. ONNX scripts (`06_onnx.py`/`05_onnx.py`) already followed this pattern — left untouched, just verified they still import cleanly.
+
+For LoRA/QLoRA specifically: naively reusing one loaded model across datasets would let dataset 2's training start from dataset 1's already-trained adapter weights, silently contaminating the comparison. `run_training_multi_dataset()` handles this with `PeftModel.unload()` — applies a **fresh** `apply_lora()` per dataset, trains, saves, then `unload()`s the adapter back to the clean base model (in place, no reload from disk) before the next dataset.
+
+Verified offline (no GPU available locally): `py_compile` + import-checks pass on `common.py` and all 9 scripts; wrote a monkeypatched logic test exercising both orchestrators with fake model objects, confirming exactly 1 `load_model_and_tokenizer` call, 1 `_assert_fully_on_gpu` call, 1 `_release_model` call per orchestrator invocation, correct `exp_id` generation (including the `"baseline"`→`"BASE"` naming exception), and — the critical property — both datasets' `apply_lora()` calls wrap the *same* base model object (proving no reload happens between them).
+
+**Issues:** None new — this is the real fix for the previous entry's CPU-offload hang, not a new failure. Updated `EXPERIMENT_MATRIX.md`/`CLAUDE.md`'s recovery procedure to describe the actual root cause (allocator fragmentation, not literal leak) and the actual fix (load-once architecture, not just cleanup calls) — the guard and cleanup calls stay in place as a safety net but are documented as insufficient on their own for 13B models. Updated `logs/experiment_tracking.csv`'s `EXP-LLAMA-BASE-SQUAD` note accordingly.
+
+**GPU hours used this session:** 0.0 (local refactor + offline logic verification only; no GPU available here)
+
+**Next session:** Rerun `EXP-LLAMA-BASE-SQUAD` and `EXP-MIS-BASE-SQUAD` on Kaggle with the restructured scripts — this is the first real test of the load-once architecture against actual hardware. Then proceed to Week 2 (LoRA, Mistral-7B) once the baseline phase is genuinely clean.
+
+---
