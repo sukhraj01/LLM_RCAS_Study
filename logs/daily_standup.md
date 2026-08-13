@@ -75,3 +75,19 @@ Verified offline (no GPU available locally): `py_compile` + import-checks pass o
 **Next session:** Rerun `EXP-LLAMA-BASE-SQUAD` and `EXP-MIS-BASE-SQUAD` on Kaggle with the restructured scripts — this is the first real test of the load-once architecture against actual hardware. Then proceed to Week 2 (LoRA, Mistral-7B) once the baseline phase is genuinely clean.
 
 ---
+
+### 2026-08-14 — Kaggle
+
+**Planned:** Rerun the baseline scripts on the restructured (load-once) `experiments/common.py` — first real-hardware test of the fix from the previous entry.
+
+**Completed:** Both `experiments/mistral/01_baseline.py` and `experiments/llama/01_baseline.py` completed cleanly, all 4 Week 1 baselines now done, including `EXP-LLAMA-BASE-SQUAD` — the one that hung for 5+ hours two sessions ago. **The load-once fix is confirmed working on real hardware.** Real numbers merged into `results/mis_results.csv`, `results/llama_results.csv`, and `logs/experiment_tracking.csv`. Nice independent confirmation the fix targeted the right thing: `EXP-MIS-BASE-SQUAD`'s `peak_vram_gb` is now 6.91GB (matching `EXP-MIS-BASE-CNN`), down from the previous session's contaminated 13.65GB — exactly the ~2x-inflation theory from two sessions ago, now resolved.
+
+**Issues:** Because the baseline scripts run both datasets per script (no way to rerun only the previously-failed dataset), rerunning `llama/01_baseline.py` and `mistral/01_baseline.py` re-appended fresh rows for `EXP-MIS-BASE-CNN` and `EXP-LLAMA-BASE-CNN` — which had already succeeded and already had rows in the committed `results/*.csv` from before — on top of the old ones (`save_result()` is append-only by design). Not itself a bug (the two Mistral-CNN measurements are consistent — 9723.3ms vs. 9616.9ms latency, ROUGE1 0.2386 both times — a nice reproducibility check), but it surfaced a real latent bug: `load_baseline_metrics()` returned the *first* matching row when scanning the CSV, not the *last* — meaning any technique script that reads a baseline after a rerun would have silently gotten stale, possibly pre-fix numbers instead of the fresh ones. Fixed: `load_baseline_metrics()` now scans the whole file and keeps the last match. Verified against the actual duplicated rows in both results files — all 4 baseline lookups (`MIS`/CNN, `MIS`/SQUAD, `LLAMA`/CNN, `LLAMA`/SQUAD) now correctly return the most recent measurement.
+
+One result worth flagging for the eventual report, not a pipeline issue: Llama-2-13B's SQuAD quality (EM 3.0, F1 13.19) is notably worse than Mistral-7B's (EM 8.0, F1 24.19) despite being the bigger model — plausibly because `meta-llama/Llama-2-13b-hf` is a non-instruction-tuned base model and the zero-shot QA prompt format used here favors instruction-following. Not investigated further; noted rather than ignored per `CLAUDE.md`'s "document unexpected results" guidance.
+
+**GPU hours used this session:** not yet recorded — engineer, please provide the actual Kaggle GPU-hours for this rerun session so `PROJECT_STATE.md` GPU Budget Tracking can be finalized (currently marked ⚠️TBD rather than guessed)
+
+**Next session:** Week 2 — LoRA fine-tuning on Mistral-7B (`experiments/mistral/02_lora.py`, now using `run_training_multi_dataset()`), both datasets. Verify config against `EXPERIMENT_MATRIX.md` technique #2 before running.
+
+---

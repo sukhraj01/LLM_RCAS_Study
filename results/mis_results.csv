@@ -1,3 +1,5 @@
 exp_id,model,technique,dataset,training_time_hrs,peak_vram_gb,inference_latency_ms,quality_metrics,status,notes,quality_degradation_percent,speedup_factor,validation_issues
 EXP-MIS-BASE-CNN,MIS,baseline,CNN,,6.91,9723.3,"{'rouge1': 0.23864457084089002, 'rouge2': 0.08410718202602918, 'rougeL': 0.15979991876555116}",completed,,0.0,1.0,
 EXP-MIS-BASE-SQUAD,MIS,baseline,SQUAD,,13.65,6643.0,"{'exact_match': 8.0, 'f1': 24.19339741135814}",completed,peak_vram_gb likely inflated - 2nd model load in same process without release (pre-fix common.py); see logs/experiment_tracking.csv note,0.0,1.0,
+EXP-MIS-BASE-CNN,MIS,baseline,CNN,,6.91,9616.9,"{'rouge1': 0.2386593770196786, 'rouge2': 0.08401213613476584, 'rougeL': 0.1606709258949163}",completed,,0.0,1.0,
+EXP-MIS-BASE-SQUAD,MIS,baseline,SQUAD,,6.91,6560.0,"{'exact_match': 8.0, 'f1': 24.19339741135814}",completed,,0.0,1.0,

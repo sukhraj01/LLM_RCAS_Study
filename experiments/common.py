@@ -219,16 +219,23 @@ def save_result(exp_id: str, model_key: str, technique: str, dataset_key: str, r
 def load_baseline_metrics(model_key: str, dataset_key: str) -> dict | None:
     """Reads the baseline row back out of results/<model>_results.csv, so technique
     scripts run in a *separate* Kaggle session from the baseline script can still
-    compare against it. Returns None if baseline hasn't been run yet (run it first)."""
+    compare against it. Returns None if baseline hasn't been run yet (run it first).
+
+    save_result() only ever appends, so a rerun of a script that already succeeded once
+    (e.g. rerunning a baseline script to pick up a previously-failed dataset in the same
+    run) leaves multiple rows for the same exp_id/technique/dataset in the file — oldest
+    first. Scans the whole file and keeps the LAST match, not the first, so a rerun's
+    fresh numbers are what get compared against, not a stale earlier attempt."""
     path = os.path.join(RESULTS_DIR, f"{model_key.lower()}_results.csv")
     if not os.path.isfile(path):
         return None
+    result = None
     with open(path, newline="") as f:
         for row in csv.DictReader(f):
             if row["technique"] == "baseline" and row["dataset"] == dataset_key:
                 quality = ast.literal_eval(row["quality_metrics"])
-                return {"quality": quality, "latency_ms": float(row["inference_latency_ms"])}
-    return None
+                result = {"quality": quality, "latency_ms": float(row["inference_latency_ms"])}
+    return result
 
 
 def require_baseline_metrics(model_key: str, dataset_key: str) -> dict:

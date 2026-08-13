@@ -2,11 +2,11 @@
 
 > Updated at the start of every work session (Kaggle or local). This is the single file any new Claude Code session should read FIRST. It reflects reality, not the plan — if something hasn't run yet, it says so.
 
-**Last Updated:** 2026-08-12 (project reset — see "Revision Note" below)
+**Last Updated:** 2026-08-14
 
-**Current Phase:** PRE-WEEK 1 — repo/env not yet set up, nothing has executed
+**Current Phase:** WEEK 2 — Week 1 (env, data pipeline, baselines) complete; starting LoRA fine-tuning on Mistral-7B
 
-**Project Status:** 🔴 Not started. Planning corrected; ready to begin real Week 1.
+**Project Status:** 🟢 On track feature-wise (all 4 Week 1 baselines complete and clean) but 🔴 over the Setup+baseline GPU-hour budget — see GPU Budget Tracking below.
 
 ---
 
@@ -42,8 +42,8 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 | **Repo structure** | ⬜ Not started | 0% | Needs creating |
 | **Environment setup** | ✅ Passed (local) | 100% local / Kaggle not yet run | `.venv` (Python 3.11) created, `pip install -r requirements.txt` succeeds after fixing an `optimum[onnxruntime-gpu]`/macOS wheel conflict (see 2026-08-13 ai-usage-log). HF_TOKEN verified present and non-placeholder in `.env`. Kaggle-side GPU install (`optimum[onnxruntime-gpu]` extra step, actual torch/CUDA) not yet verified — no GPU on this machine. |
 | **Data pipeline** | ✅ Passed (local) | 100% | `python -m utils.data_loader` sanity check passed: CNN/DailyMail val=200/test=200, SQuAD val=200/test=200, no overlap by construction (both datasets). |
-| **Baseline inference** | ⬜ Not started | 0% | 4 runs (2 models × 2 datasets) |
-| **Experiment tracking** | ⬜ Not started | 0% | `logs/experiment_tracking.csv` template needed |
+| **Baseline inference** | ✅ Passed (Kaggle) | 100% | All 4 runs complete and clean: EXP-MIS-BASE-CNN, EXP-MIS-BASE-SQUAD, EXP-LLAMA-BASE-CNN, EXP-LLAMA-BASE-SQUAD (the one that hung on the first attempt). Load-once fix (see `experiments/common.py`) confirmed working on real hardware — no CPU-offload, no hang. Real numbers in `results/mis_results.csv` / `results/llama_results.csv` and `logs/experiment_tracking.csv`. Note: Llama-2-13B's SQuAD quality (F1 13.19) is notably lower than Mistral-7B's (F1 24.19) — plausibly because Llama-2-13b-hf is a non-instruction-tuned base model on zero-shot QA, not yet investigated further; worth a callout in the eventual report either way. |
+| **Experiment tracking** | ✅ In progress | 4/22 rows | `logs/experiment_tracking.csv` populated for all 4 Week 1 baselines; 18 rows still `pending` for Weeks 2-4 |
 | **Week 2-4 experiments** | ⬜ Not started | 0% | 22 experiments per `EXPERIMENT_MATRIX.md` |
 | **API + dashboard + report** | ⬜ Not started | 0% | Blocked on experiment results |
 
@@ -66,12 +66,12 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 
 | Phase | Week(s) | Planned Hours | Used | Remaining | Status |
 |-------|---------|----------------|------|-----------|--------|
-| Setup + baseline | 1 | 2 | 12 | -10 | 🔴 Over budget — 3/4 baselines completed, 1 failed (CPU-offload hang, killed by 12h session cap; see `logs/daily_standup.md` 2026-08-13 and fix in `experiments/common.py`). Also: EXP-MIS-BASE-SQUAD's peak_vram_gb is flagged as likely contaminated by the same bug (not fatal for 7B, but not a clean number) — both it and EXP-LLAMA-BASE-SQUAD need a rerun before the phase is actually clean. |
+| Setup + baseline | 1 | 2 | 12 + ⚠️TBD | ⚠️TBD | 🔴 Over budget — all 4 baselines now complete and clean (see Component Status above). 12h used in the first (partially-failed) session; today's rerun session on the fixed code succeeded but its actual GPU-hours haven't been reported yet — **placeholder, do not treat "12" as final for this phase**, update as soon as the real number is in |
 | LoRA (Mistral only) | 2 | 4 | 0 | 4 | ⬜ Not started |
 | QLoRA (both models) | 3 | 9 | 0 | 9 | ⬜ Not started |
 | Quantization + ONNX | 4 | 6.4 | 0 | 6.4 | ⬜ Not started |
 | Buffer / reruns | 5 | 8 | 0 | 8 | ⬜ Reserve |
-| **TOTAL** | 1-5 | ~29.4 | 12 | 17.4 | 🔴 Setup+baseline phase over its own budget by 10h; total plan still has 17.4h of the 29.4h left, but the buffer week (8h) has effectively already been partly consumed by this overrun — flagging per CLAUDE.md, not silently absorbing it |
+| **TOTAL** | 1-5 | ~29.4 | 12 + ⚠️TBD | ⚠️TBD | 🔴 Setup+baseline phase already over its own 2h budget at 12h before today's rerun; today's additional hours still need to be added once known — see row above |
 
 Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they exist as slack if experiments run over.
 
@@ -107,7 +107,7 @@ Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they e
 # Blockers & Risks
 
 ### Current Blockers
-🔴 Repo not yet created. Nothing has executed. This is expected — session 1 starts the real Week 1.
+⚠️ GPU-hours for today's Kaggle rerun session not yet recorded — see GPU Budget Tracking above. Otherwise none: Week 1 is complete and clean, ready to start Week 2 (LoRA).
 
 ### Identified Risks
 
@@ -122,16 +122,22 @@ Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they e
 
 # What's Next
 
-## Week 1 (starting now)
-- [ ] Create repo structure (see `ARCHITECTURE.md`)
-- [ ] Set up Kaggle notebook + local venv, pin dependency versions in `requirements.txt`
-- [ ] Download CNN/DailyMail + SQuAD samples (start small — 500-1000 rows each — expand later only if GPU budget allows)
-- [ ] Run 4 real baseline inference experiments (2 models × 2 datasets), log real numbers
-- [ ] Initialize `logs/experiment_tracking.csv`
-- [ ] First entry in `knowledge/ai-usage-log/`
+## Week 1 — COMPLETE
+- [x] Create repo structure (see `ARCHITECTURE.md`)
+- [x] Set up Kaggle notebook + local venv, pin dependency versions in `requirements.txt`
+- [x] Download CNN/DailyMail + SQuAD samples
+- [x] Run 4 real baseline inference experiments (2 models × 2 datasets), log real numbers — done across two Kaggle sessions (see `logs/daily_standup.md` 2026-08-13/2026-08-14: first attempt hung on EXP-LLAMA-BASE-SQUAD, root-caused, fixed, rerun succeeded)
+- [x] Initialize `logs/experiment_tracking.csv`
+- [x] First entry in `knowledge/ai-usage-log/`
 
-## Weeks 2-4 (experiments)
-- Week 2: LoRA fine-tuning, Mistral-7B, both datasets (4 GPU-hrs)
+## Week 2 (starting now): LoRA fine-tuning, Mistral-7B, both datasets (~4 GPU-hrs planned)
+- [ ] Verify config matches `EXPERIMENT_MATRIX.md` technique #2 (r=8, alpha=16, target_modules q_proj/v_proj, batch=1/grad_accum=8, lr=2e-4, 2 epochs)
+- [ ] Confirm `experiments/mistral/02_lora.py` (now using `run_training_multi_dataset()`) picks up the clean baseline via `require_baseline_metrics("MIS", ...)`
+- [ ] Run `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` on Kaggle
+- [ ] Log real GPU-hours, peak VRAM, training time, quality vs. Mistral baseline
+- [ ] Quality gate check per `EXPERIMENT_MATRIX.md` ("training time roughly 40-60% of full FT cost, no OOM") before moving to Week 3
+
+## Weeks 3-4 (experiments)
 - Week 3: QLoRA fine-tuning, both models, both datasets (9 GPU-hrs)
 - Week 4: 8-bit + 4-bit quantized inference, ONNX export, both models (6.4 GPU-hrs)
 
@@ -163,3 +169,17 @@ Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they e
 **Blockers:** None — ready to start real Week 1
 
 **Next session:** Actually execute Week 1 (repo setup, env, data download, real baselines)
+
+### Session 2: Week 1 Execution (2026-08-13 → 2026-08-14)
+- Verified local dev environment end-to-end: venv (Python 3.11), fixed a real `optimum[onnxruntime-gpu]`/macOS wheel dependency conflict in `requirements.txt`, confirmed HF_TOKEN, data pipeline sanity check passed, all 11 experiment scripts syntax/import-checked
+- First Kaggle baseline session: 3/4 baselines completed, `EXP-LLAMA-BASE-SQUAD` hung 5+ hours and was killed by the 12h session cap
+- Root-caused and fixed in two passes: (1) added a fail-fast device-placement guard + explicit model cleanup (symptom fix — turned the silent hang into a fast error); (2) identified the *actual* cause (reloading a model a second time in the same process causes CUDA allocator fragmentation on 13B models) and restructured `experiments/common.py` so every process loads its model once and loops datasets in-memory (`run_inference_multi_dataset()`, `run_training_multi_dataset()`) — verified offline via logic tests, not yet on real hardware at time of the fix
+- While merging real baseline numbers, found and fixed two more latent bugs before they could block Week 2: a numpy-repr serialization bug in `compute_rouge()` that broke `ast.literal_eval()` round-tripping, and a results-filename mismatch between `ARCHITECTURE.md`'s docs and what the code actually reads/writes (`mis_results.csv`, not `mistral_results.csv`)
+- Second Kaggle session (post-fix): all 4 baselines completed cleanly, including the one that hung before — load-once fix confirmed working on real hardware. Found (and fixed) a related latent bug: `load_baseline_metrics()` returned the *first* matching row instead of the *latest*, which would have silently picked up stale data given `results/*.csv`'s append-only design plus this session's rerun-created duplicate rows
+- Full verbatim session logs: `knowledge/ai-usage-log/2026-08-13_env-verification.md`, `2026-08-13_kaggle-baseline-hang.md`, `2026-08-14_baseline-rerun-clean.md`
+
+**Decisions made:** Load-once-per-process architecture for all technique scripts (documented in `EXPERIMENT_MATRIX.md`/`CLAUDE.md` recovery procedures); `load_baseline_metrics()` takes the latest matching row, not the first
+
+**Blockers:** GPU-hours for the second (rerun) Kaggle session not yet recorded — GPU Budget Tracking's "12" figure is a placeholder pending that number
+
+**Next session:** Week 2 — LoRA fine-tuning on Mistral-7B, both datasets
