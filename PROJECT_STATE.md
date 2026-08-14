@@ -4,9 +4,9 @@
 
 **Last Updated:** 2026-08-14
 
-**Current Phase:** WEEK 2 — Week 1 (env, data pipeline, baselines) complete; starting LoRA fine-tuning on Mistral-7B
+**Current Phase:** WEEK 3 — Week 1 (env, data pipeline, baselines) and Week 2 (LoRA fine-tuning, Mistral-7B) both complete and confirmed on real hardware; starting QLoRA
 
-**Project Status:** 🟢 On track feature-wise (all 4 Week 1 baselines complete and clean) but 🔴 over the Setup+baseline GPU-hour budget — see GPU Budget Tracking below.
+**Project Status:** 🟢 On track feature-wise (all 4 Week 1 baselines + both Week 2 LoRA experiments complete, clean, and confirmed) but 🔴 over the Setup+baseline GPU-hour budget — see GPU Budget Tracking below.
 
 ---
 
@@ -43,8 +43,8 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 | **Environment setup** | ✅ Passed (local + Kaggle) | 100% | `.venv` (Python 3.11) created locally, `pip install -r requirements.txt` succeeds after fixing an `optimum[onnxruntime-gpu]`/macOS wheel conflict (see 2026-08-13 ai-usage-log). HF_TOKEN verified. Kaggle-side torch/CUDA now confirmed working via 2 real GPU sessions (baseline runs). The `optimum[onnxruntime-gpu]` extra install step is still unverified — no ONNX experiments have run yet (Week 4). |
 | **Data pipeline** | ✅ Passed (local + Kaggle) | 100% | `python -m utils.data_loader` sanity check passed locally: CNN/DailyMail val=200/test=200, SQuAD val=200/test=200, no overlap by construction. Same loader confirmed working on real Kaggle sessions too — all 4 baseline experiments loaded real CNN/SQuAD samples successfully. |
 | **Baseline inference** | ✅ Passed (Kaggle) | 100% | All 4 runs complete and clean: EXP-MIS-BASE-CNN, EXP-MIS-BASE-SQUAD, EXP-LLAMA-BASE-CNN, EXP-LLAMA-BASE-SQUAD (the one that hung on the first attempt). Load-once fix (see `experiments/common.py`) confirmed working on real hardware — no CPU-offload, no hang. Real numbers in `results/mis_results.csv` / `results/llama_results.csv` and `logs/experiment_tracking.csv`. Note: Llama-2-13B's SQuAD quality (F1 13.19) is notably lower than Mistral-7B's (F1 24.19) — plausibly because Llama-2-13b-hf is a non-instruction-tuned base model on zero-shot QA, not yet investigated further; worth a callout in the eventual report either way. |
-| **Experiment tracking** | ✅ In progress | 4/22 rows | `logs/experiment_tracking.csv` populated for all 4 Week 1 baselines; 18 rows still `pending` for Weeks 2-4 |
-| **Week 2-4 experiments** | ⬜ Not started | 0% | 22 experiments per `EXPERIMENT_MATRIX.md` |
+| **Experiment tracking** | ✅ In progress | 6/22 rows | `logs/experiment_tracking.csv` populated for all 4 Week 1 baselines + both Week 2 LoRA (Mistral) rows, both `CONFIRMED FINAL`; 16 rows still `pending` for Weeks 3-4 |
+| **Week 2-4 experiments** | 🟡 In progress | 2/22 (Week 2 LoRA, Mistral-7B, both datasets) | `EXP-MIS-LORA-CNN`/`EXP-MIS-LORA-SQUAD` complete and confirmed on real hardware under the fixed collator (see Current Blockers). Week 3 (QLoRA) up next. |
 | **API + dashboard + report** | ⬜ Not started | 0% | Blocked on experiment results |
 
 ---
@@ -67,11 +67,11 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 | Phase | Week(s) | Planned Hours | Used | Remaining | Status |
 |-------|---------|----------------|------|-----------|--------|
 | Setup + baseline | 1 | 2 | ≥14.5 | ≤-12.5 | 🔴 Over budget by 7x the plan (2h planned → ≥14.5h actual). All 4 baselines now complete and clean (see Component Status above). Breakdown: 12h (session 1, 2026-08-13, partial failure — 3/4 completed, `EXP-LLAMA-BASE-SQUAD` hung, killed by 12h session cap) + 2.5h (session 3, 2026-08-14, load-once fix — all 4 clean, estimated from per-sample timing, not exact Kaggle accounting). **Not yet included:** a 3rd, intermediate Kaggle session between those two (the guard-only fix test, which correctly fired a fast `RuntimeError` on `EXP-LLAMA-BASE-SQUAD` instead of hanging) had real but unrecorded GPU-hours — true total is ≥14.5h, exact figure still needed. |
-| LoRA (Mistral only) | 2 | 4 | 0 | 4 | ⬜ Not started |
+| LoRA (Mistral only) | 2 | 4 | ~2.6 | ~1.4 | ✅ Complete, under budget. ~1.3h (0.86+0.41hr) burned on the buggy-collator run whose results were discarded, plus ~1.3h (0.89+0.42hr) on the confirmed rerun — both real GPU time, counted honestly even though only the rerun's results are final. |
 | QLoRA (both models) | 3 | 9 | 0 | 9 | ⬜ Not started |
 | Quantization + ONNX | 4 | 6.4 | 0 | 6.4 | ⬜ Not started |
 | Buffer / reruns | 5 | 8 | 0 | 8 | ⬜ Reserve |
-| **TOTAL** | 1-5 | ~29.4 | ≥14.5 | ≤14.9 | 🟡 Setup+baseline alone used ≥49% of the entire 5-phase 29.4h *estimate* (planned share was ~7%) — a real miss on the phase-level plan, worth remembering when estimating Weeks 2-4. **Not a cap risk**, though: the 30h figure is a per-week quota that refreshes every Sunday, not a shared multi-phase pool (confirmed by the engineer) — Setup+baseline's ≥14.5h all landed inside a single week and is comfortably under that week's 30h, and each of Weeks 2-4 gets its own fresh 30h regardless of what earlier weeks used. |
+| **TOTAL** | 1-5 | ~29.4 | ≥17.1 | ≤12.3 | 🟡 Setup+baseline + LoRA combined have used ≥58% of the entire 5-phase 29.4h *estimate* against a planned combined share of ~20%. **Not a cap risk**: the 30h figure is a per-week quota that refreshes every Sunday, not a shared multi-phase pool (confirmed by the engineer) — all of Setup+baseline's and LoRA's actual hours landed inside single weeks and each stayed comfortably under that week's own 30h; Weeks 3-4 each get their own fresh 30h regardless of what earlier weeks used. |
 
 Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they exist as slack if experiments run over.
 
@@ -107,11 +107,18 @@ Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they e
 # Blockers & Risks
 
 ### Current Blockers
-⚠️ GPU-hours for today's Kaggle rerun session not yet recorded — see GPU Budget Tracking above. Otherwise none: Week 1 is complete and clean, ready to start Week 2 (LoRA).
+None. Week 1 (baselines) and Week 2 (LoRA, Mistral-7B) are both complete and clean.
 
-⚠️ **Root cause identified and fixed (2026-08-14); existing Mistral LoRA results should be considered unreliable pending rerun.** `EXP-MIS-LORA-SQUAD` completed with EM 0.0/200 (down from baseline EM 8.0). Code review confirmed the mechanism: `load_model_and_tokenizer()` sets `tokenizer.pad_token = tokenizer.eos_token` (Mistral's tokenizer ships no distinct pad token), and `run_training_experiment()` previously used `transformers.DataCollatorForLanguageModeling(mlm=False)`, whose default behavior masks any label token equal to `pad_token_id`'s *value* — not by actual padding position — to `-100`. Since `pad_token_id == eos_token_id`, this silently masked every genuine end-of-sequence token in every training target, for every technique/dataset that trains, not SQuAD alone — the model never got gradient signal for when to stop generating. Fixed: `experiments/common.py` now uses a custom `_CausalLMCollator` that masks by `attention_mask == 0` (real padding) instead. Verified with an offline fake-tensor smoke test (no GPU): a token whose value matches `pad_token_id` but whose `attention_mask` is `1` is correctly preserved in labels. `save_debug_predictions()` now also dumps the first 5 predictions + references per experiment to `logs/debug_predictions/` for future spot-checks.
+### Resolved (2026-08-14): EOS-masking collator bug, confirmed on real hardware
+`EXP-MIS-LORA-SQUAD` originally completed with EM 0.0/200 (down from baseline EM 8.0). Root cause: `load_model_and_tokenizer()` sets `tokenizer.pad_token = tokenizer.eos_token` (Mistral's tokenizer ships no distinct pad token), and `run_training_experiment()` previously used `transformers.DataCollatorForLanguageModeling(mlm=False)`, whose default behavior masks any label token equal to `pad_token_id`'s *value* — not by actual padding position — to `-100`. Since `pad_token_id == eos_token_id`, this silently masked every genuine end-of-sequence token in every training target, for every technique/dataset that trains, not SQuAD alone — the model never got gradient signal for when to stop generating. Fixed: `experiments/common.py` now uses a custom `_CausalLMCollator` that masks by `attention_mask == 0` (real padding) instead.
 
-**This is likely THE explanation, not just a hypothesis, but is not yet proven** — no rerun or raw predictions have confirmed it against real hardware yet. **Both `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` were trained under the buggy collator** (it's the one code path both used), so both should be treated as unreliable, not just the SQuAD row — CNN's ROUGE improvement doesn't clear it, since ROUGE (partial n-gram overlap) is much more tolerant of a model that over-generates past the correct content than SQuAD's strict exact-match is, so the same underlying defect could easily be present but not visible in CNN's headline number. **Recommend rerunning both `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD`** with the fixed collator before treating either as a final result. Full reasoning in `logs/experiment_tracking.csv` and `EXPERIMENT_MATRIX.md` Recovery Procedures. **Do not treat the existing numbers as accepted/final until rerun.**
+**Confirmed on real hardware, not just code review.** Both `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` were rerun on Kaggle under the fixed collator on 2026-08-14. Final numbers (`results/mis_results.csv`):
+- `EXP-MIS-LORA-CNN`: ROUGE1/2/L 0.2890/0.1074/0.1965 vs baseline 0.2387/0.0840/0.1607 (+21.1%), training_time_hrs 0.89, peak_vram_gb 6.92
+- `EXP-MIS-LORA-SQUAD`: EM 85.5/F1 91.96 vs baseline EM 8.0/F1 24.19 (+280%), training_time_hrs 0.42, peak_vram_gb 6.93, inference_latency_ms 625.1 (down from 9327.6 pre-fix)
+
+Spot-check via `save_debug_predictions()`'s dump (5 examples/dataset, `logs/debug_predictions/`) confirms the mechanism directly rather than just inferring it from aggregate metrics: SQuAD predictions now terminate cleanly at EOS and match references almost exactly, instead of running on to `max_new_tokens`. See `EXPERIMENT_MATRIX.md` "Qualitative Notes for Report" for two caveats worth carrying into the writeup: (1) CNN's ROUGE gain is real but the raw predictions show repetition loops and a rambling style, not clean bullet-point summarization — a genuine base-model/small-LoRA quality limit, not a pipeline defect; (2) SQuAD's 10.49x latency speedup is the EOS fix letting the model stop generating, not an inherent LoRA inference speedup — don't cite it in isolation as "LoRA is 10x faster."
+
+Both rows in `logs/experiment_tracking.csv` are now marked `CONFIRMED FINAL`, replacing the prior `NEEDS RERUN` status.
 
 ### Identified Risks
 
@@ -134,16 +141,21 @@ Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they e
 - [x] Initialize `logs/experiment_tracking.csv`
 - [x] First entry in `knowledge/ai-usage-log/`
 
-## Week 2 (starting now): LoRA fine-tuning, Mistral-7B, both datasets (~4 GPU-hrs planned)
-- [ ] Verify config matches `EXPERIMENT_MATRIX.md` technique #2 (r=8, alpha=16, target_modules q_proj/v_proj, batch=1/grad_accum=8, lr=2e-4, 2 epochs)
-- [ ] Confirm `experiments/mistral/02_lora.py` (now using `run_training_multi_dataset()`) picks up the clean baseline via `require_baseline_metrics("MIS", ...)`
-- [ ] Run `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` on Kaggle
-- [ ] Log real GPU-hours, peak VRAM, training time, quality vs. Mistral baseline
-- [ ] Quality gate check per `EXPERIMENT_MATRIX.md` ("training time roughly 40-60% of full FT cost, no OOM") before moving to Week 3
+## Week 2 — COMPLETE
+- [x] Verify config matches `EXPERIMENT_MATRIX.md` technique #2 (r=8, alpha=16, target_modules q_proj/v_proj, batch=1/grad_accum=8, lr=2e-4, 2 epochs)
+- [x] Confirm `experiments/mistral/02_lora.py` (now using `run_training_multi_dataset()`) picks up the clean baseline via `require_baseline_metrics("MIS", ...)`
+- [x] Run `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` on Kaggle — required two sessions: first hit an EOS-masking collator bug (fixed, see Current Blockers "Resolved" note), confirmed rerun completed 2026-08-14
+- [x] Log real GPU-hours, peak VRAM, training time, quality vs. Mistral baseline — both rows `CONFIRMED FINAL` in `logs/experiment_tracking.csv`
+- [x] Quality gate check per `EXPERIMENT_MATRIX.md` ("training time roughly 40-60% of full FT cost, no OOM") — passed, no OOM, peak VRAM 6.92-6.93GB, training time well under 1hr each
 
-## Weeks 3-4 (experiments)
-- Week 3: QLoRA fine-tuning, both models, both datasets (9 GPU-hrs)
-- Week 4: 8-bit + 4-bit quantized inference, ONNX export, both models (6.4 GPU-hrs)
+## Week 3 (starting now): QLoRA fine-tuning, both models, both datasets (~9 GPU-hrs planned)
+- [ ] Verify config matches `EXPERIMENT_MATRIX.md` technique #3
+- [ ] Run `EXP-MIS-QLORA-CNN`/`EXP-MIS-QLORA-SQUAD` and `EXP-LLAMA-QLORA-CNN`/`EXP-LLAMA-QLORA-SQUAD` on Kaggle
+- [ ] Log real GPU-hours, peak VRAM, training time, quality vs. baseline for both models
+- [ ] Quality gate check per `EXPERIMENT_MATRIX.md` ("peak VRAM stays under 14GB, training time visibly less than LoRA's") before moving to Week 4
+
+## Week 4 (experiments)
+- 8-bit + 4-bit quantized inference, ONNX export, both models (6.4 GPU-hrs)
 
 ## Week 5 (buffer + compile)
 - Reruns for any failed/inconsistent experiments
@@ -187,3 +199,16 @@ Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they e
 **Blockers:** Session 3's (2026-08-14 rerun) GPU-hours now recorded (~2.5h, estimated from per-sample timing). Still open: the intermediate guard-fix-test session's exact GPU-hours were never captured — running total (≥14.5h) is a confirmed floor, not the true figure. Not blocking Week 2, but should be resolved before the Setup+baseline phase is called fully closed out.
 
 **Next session:** Week 2 — LoRA fine-tuning on Mistral-7B, both datasets
+
+### Session 3: Week 2 LoRA Rerun Confirmed (2026-08-14)
+- Reran `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` on Kaggle under the fixed `_CausalLMCollator` (previous session's EOS-masking bug fix, applied but not yet tested on real hardware)
+- Confirmed on real hardware, not just code review: `EXP-MIS-LORA-SQUAD` EM 85.5/F1 91.96 (vs. buggy-run EM 0.0/F1 7.76, vs. baseline EM 8.0/F1 24.19), inference latency 625.1ms (down from 9327.6ms pre-fix); `EXP-MIS-LORA-CNN` ROUGE1/2/L 0.2890/0.1074/0.1965 (vs. baseline 0.2387/0.0840/0.1607, +21.1%)
+- Spot-checked `logs/debug_predictions/` for both experiments (5 examples each): SQuAD predictions now terminate cleanly and match references almost exactly, confirming the EOS-masking mechanism directly; CNN predictions still show repetition loops and rambling continuation style despite the ROUGE improvement — a real base-model/small-LoRA quality limitation, documented in `EXPERIMENT_MATRIX.md` "Qualitative Notes for Report" so it isn't overstated later
+- Explicitly documented that SQuAD's 10.49x speedup_factor is the EOS fix letting generation stop early, not an inherent LoRA inference speedup — flagged so it isn't misread in isolation during report writing
+- Updated `logs/experiment_tracking.csv` (both LoRA rows now `CONFIRMED FINAL`), `PROJECT_STATE.md` (blocker resolved, Week 2 checklist closed out, GPU Budget Tracking updated with actual LoRA-phase hours including the discarded buggy run), `EXPERIMENT_MATRIX.md` (new Qualitative Notes section)
+
+**Decisions made:** Both Week 2 LoRA results are accepted as final. Quality gate for Week 2 passed (no OOM, VRAM well under budget, training time reasonable) — proceeding to Week 3 (QLoRA)
+
+**Blockers:** None
+
+**Next session:** Week 3 — QLoRA fine-tuning, both models, both datasets

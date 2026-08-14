@@ -1,0 +1,20 @@
+--- example 0 ---
+prediction: '13,000 BP'
+references: ['13,000 BP', '13,000 BP', '13,000 BP']
+
+--- example 1 ---
+prediction: 'approximately one week'
+references: ['approximately one week', 'one week', 'one week', 'one week', 'one week']
+
+--- example 2 ---
+prediction: 'polynomial time'
+references: ['polynomial time', 'polynomial', 'polynomial time']
+
+--- example 3 ---
+prediction: 'T cell receptor'
+references: ['T cell receptor (TCR)', 'T cell receptor', 'T cell receptor (TCR)']
+
+--- example 4 ---
+prediction: 'Corliss'
+references: ['Corliss', 'patent valve', 'Corliss']
+

@@ -139,6 +139,16 @@ Baseline is always the fp16 zero-shot run for that model+dataset. Every other te
 
 ---
 
+## Qualitative Notes for Report
+
+Aggregate metrics (ROUGE, EM/F1) don't always tell the full quality story. Spot-checks against raw generations (`logs/debug_predictions/<exp_id>.txt`, first 5 examples per experiment, added 2026-08-14) surfaced two findings worth carrying into the technical report:
+
+**`EXP-MIS-LORA-CNN`: ROUGE improvement is real but not "clean" summarization quality.** LoRA fine-tuning raised ROUGE-1/2/L by +21.1% over baseline (0.2890/0.1074/0.1965 vs 0.2387/0.0840/0.1607), but the raw predictions in `logs/debug_predictions/EXP-MIS-LORA-CNN.txt` show repetition loops (e.g. "I'm not going to say anything about the last few weeks" repeated verbatim 3x in example 0) and a rambling, run-on continuation style, rather than the terse bullet-point style CNN/DailyMail references use. This is consistent with a base (non-instruction-tuned) Mistral-7B model, LoRA r=8, only 1000 training examples, 2 epochs — a genuine quality limitation of this specific setup, not a pipeline defect. **Do not cite the +21.1% ROUGE gain in the report without this caveat** — ROUGE rewards n-gram overlap and is measurably fooled by verbose over-generation here.
+
+**`EXP-MIS-LORA-SQUAD`'s 10.49x inference speedup is not an inherent LoRA effect.** Latency dropped from baseline 6560.0ms to 625.1ms after the EOS-masking collator fix — but this is entirely because the fixed model now stops generating at EOS instead of running to `max_new_tokens` every single call (pre-fix latency was 9327.6ms, i.e. *slower* than baseline, because it always hit the generation cap). The `speedup_factor` field for this row measures "buggy-baseline-generation-length vs fixed-model-natural-stopping-length," not "LoRA-adapted inference vs base-model inference" holding generation behavior constant. **When writing up inference-latency comparisons, do not present this number as evidence that LoRA itself makes inference faster** — it doesn't, in general; the effect here is specific to fixing a training bug that had nothing to do with LoRA as a technique. Any real LoRA-vs-baseline latency comparison should control for generation length/stopping behavior on both sides.
+
+---
+
 ## Recovery Procedures (unchanged from CLAUDE.md, restated here for convenience)
 
 **CUDA OOM:** reduce batch size → increase gradient accumulation → reduce `max_seq_length` to 256 → last resort, skip and document.

@@ -118,3 +118,25 @@ Both rows merged into `logs/experiment_tracking.csv`.
 **Next session:** Rerun `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` on Kaggle with the fixed `_CausalLMCollator`, and check the new `logs/debug_predictions/` output to confirm the pre-fix predictions actually were verbose/run-on as hypothesized. Only proceed to QLoRA (Week 3) once both LoRA results are re-confirmed clean under the fix.
 
 ---
+
+### 2026-08-14 — Kaggle (LoRA rerun confirmed)
+
+**Planned:** Rerun `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` on Kaggle under the fixed `_CausalLMCollator`, check `logs/debug_predictions/` to confirm the EOS-masking hypothesis on real hardware, and close out the `NEEDS RERUN` status from the previous session.
+
+**Completed:** Both experiments reran cleanly. Final numbers, `results/mis_results.csv`:
+- `EXP-MIS-LORA-CNN`: ROUGE1/2/L 0.2890/0.1074/0.1965 (baseline 0.2387/0.0840/0.1607, +21.1%), training_time_hrs 0.89, peak_vram_gb 6.92
+- `EXP-MIS-LORA-SQUAD`: EM 85.5/F1 91.96 (baseline EM 8.0/F1 24.19, +280%), training_time_hrs 0.42, peak_vram_gb 6.93, inference_latency_ms 625.1 (down from 9327.6ms pre-fix)
+
+Spot-checked `logs/debug_predictions/` (5 examples/dataset) rather than trusting the aggregate metrics alone: SQuAD predictions now stop cleanly at EOS and match references almost exactly — confirms the EOS-masking root cause directly on real hardware, not just via code review. CNN predictions, despite the ROUGE gain, still show repetition loops and a rambling continuation style rather than the terse bullet-point style of the references — a genuine base-model (non-instruction-tuned) + small-LoRA (r=8, 1000 examples, 2 epochs) quality limit, not a pipeline defect. Documented as a caveat in `EXPERIMENT_MATRIX.md` "Qualitative Notes for Report" so the ROUGE number isn't cited without context later.
+
+Also documented explicitly: SQuAD's 10.49x `speedup_factor` is the EOS fix letting the model stop generating early, not an inherent LoRA-vs-baseline inference speedup — flagged in `EXPERIMENT_MATRIX.md` and `logs/experiment_tracking.csv` so it isn't misread as "LoRA makes inference 10x faster" during report writing.
+
+Both `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` rows in `logs/experiment_tracking.csv` updated from `NEEDS RERUN` to `CONFIRMED FINAL`. `PROJECT_STATE.md` blocker marked resolved (confirmed on real hardware, not just code review); Week 2 checklist closed out; Week 2 quality gate passed (no OOM, peak VRAM well under 16GB, training time reasonable) — proceeding to Week 3 (QLoRA).
+
+**Issues:** None this session — this was the confirmation run for the previous session's fix, and it worked as diagnosed.
+
+**GPU hours used this session:** ~1.31h (training_time_hrs 0.89 + 0.42 from the two reruns). Combined with the ~1.27h spent on the earlier discarded buggy-collator run, total Week 2 LoRA phase GPU-hours is ~2.6h against a 4h plan — see `PROJECT_STATE.md` GPU Budget Tracking.
+
+**Next session:** Week 3 — QLoRA fine-tuning, both models, both datasets. Verify config against `EXPERIMENT_MATRIX.md` technique #3 before running.
+
+---
