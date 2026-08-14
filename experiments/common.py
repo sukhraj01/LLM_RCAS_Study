@@ -23,12 +23,13 @@ import torch
 from datasets import Dataset
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-from transformers import Trainer, TrainingArguments, DataCollatorForLanguageModeling
+from transformers import Trainer, TrainingArguments
 
 from utils.config import (
     DATASETS,
     HF_TOKEN,
     LORA_CONFIG,
+    LOGS_DIR,
     MAX_SEQ_LENGTH,
     MODELS,
     QUANT_4BIT_CONFIG,
@@ -185,6 +186,49 @@ def evaluate_quality(dataset_key: str, predictions: list[str], examples: list[di
     raise ValueError(dataset_key)
 
 
+def save_debug_predictions(exp_id: str, dataset_key: str, predictions: list[str], examples: list[dict], n: int = 5):
+    """Saves the first n generated predictions + references to a small text file so a result
+    like EXP-MIS-LORA-SQUAD's EM collapse can be spot-checked from what the model actually
+    generated, not just aggregate quality_metrics. Deliberately lightweight (first n examples,
+    plain text) — not a full predictions archive. See EXPERIMENT_MATRIX.md Recovery Procedures."""
+    debug_dir = os.path.join(LOGS_DIR, "debug_predictions")
+    os.makedirs(debug_dir, exist_ok=True)
+    path = os.path.join(debug_dir, f"{exp_id}.txt")
+    with open(path, "w") as f:
+        for i, (pred, ex) in enumerate(zip(predictions[:n], examples[:n])):
+            refs = get_references(dataset_key, ex)
+            f.write(f"--- example {i} ---\nprediction: {pred!r}\nreferences: {refs!r}\n\n")
+
+
+# ---------------------------------------------------------------------------
+# Training collator
+# ---------------------------------------------------------------------------
+
+
+class _CausalLMCollator:
+    """Pads a batch and builds labels for causal LM training, masking real padding positions
+    (attention_mask == 0) rather than transformers' default DataCollatorForLanguageModeling
+    behavior of masking any label token equal to pad_token_id's VALUE.
+
+    That distinction matters here: load_model_and_tokenizer() sets tokenizer.pad_token =
+    tokenizer.eos_token whenever a tokenizer has no distinct pad token (true for this
+    project's models). Masking by pad_token_id value then also erases every genuine
+    end-of-sequence token appended to each training target — not just real padding — so the
+    model never gets gradient signal for when to stop generating. Root-caused after
+    EXP-MIS-LORA-SQUAD's exact_match collapsed to 0/200 while F1/ROUGE stayed nonzero. See
+    EXPERIMENT_MATRIX.md Recovery Procedures."""
+
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+
+    def __call__(self, features):
+        batch = self.tokenizer.pad(features, return_tensors="pt")
+        labels = batch["input_ids"].clone()
+        labels[batch["attention_mask"] == 0] = -100
+        batch["labels"] = labels
+        return batch
+
+
 # ---------------------------------------------------------------------------
 # Result recording
 # ---------------------------------------------------------------------------
@@ -280,6 +324,8 @@ def run_inference_only_experiment(model, tokenizer, exp_id: str, model_key: str,
     with LatencyVRAMTracker() as tracker:
         predictions = generate_predictions(model, tokenizer, test_examples, dataset_key)
 
+    save_debug_predictions(exp_id, dataset_key, predictions, test_examples)
+
     latency_ms = tracker.latency_ms(len(test_examples))
     quality = evaluate_quality(dataset_key, predictions, test_examples)
 
@@ -373,7 +419,7 @@ def run_training_experiment(model, tokenizer, exp_id: str, model_key: str, datas
         model=model,
         args=training_args,
         train_dataset=train_ds,
-        data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
+        data_collator=_CausalLMCollator(tokenizer),
     )
 
     start = time.perf_counter()
@@ -385,6 +431,8 @@ def run_training_experiment(model, tokenizer, exp_id: str, model_key: str, datas
     with LatencyVRAMTracker() as tracker:
         predictions = generate_predictions(model, tokenizer, test_examples, dataset_key)
     latency_ms = tracker.latency_ms(len(test_examples))
+
+    save_debug_predictions(exp_id, dataset_key, predictions, test_examples)
 
     quality = evaluate_quality(dataset_key, predictions, test_examples)
 
