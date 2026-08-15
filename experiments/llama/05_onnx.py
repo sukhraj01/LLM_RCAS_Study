@@ -6,6 +6,7 @@ the caveat about optimum's export API varying by version. Requires 01_baseline.p
 Run: python experiments/llama/05_onnx.py
 """
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -13,7 +14,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import torch
+from optimum.exporters.onnx import main_export
 from optimum.onnxruntime import ORTModelForCausalLM
+from optimum.utils.save_utils import maybe_save_preprocessors
 from transformers import AutoTokenizer
 
 from experiments.common import evaluate_quality, format_example, load_baseline_metrics, save_result
@@ -31,11 +34,34 @@ if __name__ == "__main__":
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    print("Exporting to ONNX (first run only — reuses onnx_dir after that)...")
-    ort_model = ORTModelForCausalLM.from_pretrained(
-        model_id, export=True, provider="CUDAExecutionProvider", token=HF_TOKEN
-    )
-    ort_model.save_pretrained(onnx_dir)
+    # WARNING: this is Llama-2-13B. fp16 weights alone are ~26GB — already over Kaggle's
+    # 16GB VRAM before any export overhead — and CPU export needs ~26GB+ of Kaggle CPU RAM
+    # to hold the model for tracing, which has NOT been checked. Do not run this script until
+    # that's confirmed. See PROJECT_STATE.md Blockers & Risks / EXPERIMENT_MATRIX.md Recovery
+    # Procedures "ONNX Export OOM" for the open risk this carries beyond Mistral's fix.
+    if os.path.isdir(onnx_dir) and any(f.endswith(".onnx") for f in os.listdir(onnx_dir)):
+        print(f"Reusing existing ONNX export at {onnx_dir} (first-run export skipped).")
+    else:
+        # Export on CPU with device="cpu": tracing needs the full model resident AND the
+        # traced graph being built simultaneously, which peaks above steady-state inference
+        # VRAM — that combined peak was never separately projected in EXPERIMENT_MATRIX.md
+        # and OOM'd on Kaggle (Mistral-7B) when the model was placed on GPU for export.
+        # dtype="fp16" matters too: main_export defaults to fp32, which would produce a ~2x
+        # larger ONNX graph than the fp16 baseline and blow VRAM again once loaded for
+        # inference below, independent of the CPU/GPU export-device issue.
+        print(f"Exporting to ONNX on CPU, fp16 (first run only — writes to {onnx_dir})...")
+        main_export(
+            model_name_or_path=model_id,
+            output=onnx_dir,
+            task="text-generation-with-past",
+            device="cpu",
+            dtype="fp16",
+            token=HF_TOKEN,
+        )
+        maybe_save_preprocessors(model_id, onnx_dir)
+
+    print("Loading exported ONNX graph via onnxruntime-gpu CUDAExecutionProvider for benchmarking...")
+    ort_model = ORTModelForCausalLM.from_pretrained(onnx_dir, provider="CUDAExecutionProvider")
 
     for dataset_key in ("CNN", "SQUAD"):
         baseline = load_baseline_metrics("LLAMA", dataset_key)

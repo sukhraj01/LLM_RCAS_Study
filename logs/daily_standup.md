@@ -208,3 +208,25 @@ Also ran `utils/validation.py`'s `check_quant_vram_relationship(1.81, 3.25)` as 
 **Next session:** Mistral-7B ONNX export/inference (`EXP-MIS-ONNX-CNN`/`EXP-MIS-ONNX-SQUAD`) — last Mistral-7B technique in the matrix, closes out Mistral's full 12-experiment set. Then decide on Llama-2-13B's deferred QLoRA and remaining quantization/ONNX experiments.
 
 ---
+
+### 2026-08-15 — Kaggle (ONNX export, Mistral-7B) — OOM, code fix applied, rerun still needed
+
+**Planned:** Mistral-7B ONNX export/inference (`EXP-MIS-ONNX-CNN`/`EXP-MIS-ONNX-SQUAD`) — last Mistral-7B technique in the matrix.
+
+**Completed:** No experiment rows produced this session — export itself OOM'd before any inference ran. Root-caused and fixed in code (see Issues); **not yet reverified on Kaggle hardware.**
+
+**Issues:** Export step hit Kaggle's "Your notebook tried to allocate more memory than is available" — confirmed via nvidia-smi/Kaggle's crash banner, not a Python traceback, so a genuine VRAM ceiling hit rather than a script bug. `EXPERIMENT_MATRIX.md`'s VRAM math never separately projected the export step, only steady-state inference — that's the gap that let this through planning.
+
+Root-caused by reading `experiments/mistral/06_onnx.py` and the installed `optimum.exporters.onnx.main_export` source directly (pinned as `optimum[onnxruntime]>=1.19.0`, unpinned exact version — no `requirements.lock.txt` yet, so this is the best available proxy for what ran on Kaggle):
+1. The old code called `ORTModelForCausalLM.from_pretrained(model_id, export=True, provider="CUDAExecutionProvider", token=HF_TOKEN)` — export/trace and CUDA `InferenceSession` creation happened together rather than the trace being kept off-GPU.
+2. Bigger effect, confirmed by reading `main_export`'s signature: its `dtype` parameter defaults to `"fp32"` whenever not explicitly passed, and the old code never passed it. A fp32 export of a 7B model is ~28GB — double the fp16 baseline's ~14GB that fits fine — so loading that graph onto a 16GB GPU via `CUDAExecutionProvider` would OOM on its own, independent of where tracing happened.
+
+**Fix applied** (same session, local, no GPU used): both `experiments/mistral/06_onnx.py` and `experiments/llama/05_onnx.py` now call `optimum.exporters.onnx.main_export()` directly with `device="cpu", dtype="fp16"` — export/trace entirely off-GPU, at the same precision as the fp16 baseline — then load the resulting graph from `onnx_dir` via `ORTModelForCausalLM.from_pretrained(onnx_dir, provider="CUDAExecutionProvider")` for the actual benchmarked GPU inference loop. Also turned the "first run only, reuses `onnx_dir`" docstring claim into a real `os.path.isdir(...)`/`.onnx`-file check — previously just a comment with no actual implementation, so every prior run would have silently re-exported from scratch. New Recovery Procedures entry added to `EXPERIMENT_MATRIX.md`; `PROJECT_STATE.md` Blockers & Risks updated with the same writeup plus an explicit open-risk flag for Llama-2-13B's ONNX export (13B fp16 weights alone are ~26GB, already over 16GB before export overhead — CPU export may be the only option there, unconfirmed whether Kaggle CPU RAM can even hold it for tracing; not scheduled until checked).
+
+**Verified offline only:** `py_compile` on both scripts, full module-level import against the real installed `optimum`/`torch`/`transformers` stack (catches import/API-signature errors), and `inspect.signature(main_export)` confirms it accepts `device`/`dtype`/`task`/`token` as used. **No GPU available locally — cannot confirm the fix actually resolves the OOM until rerun on Kaggle.**
+
+**GPU hours used this session:** 0.0 (OOM'd almost immediately on the export step before meaningful GPU time accrued; fix itself was code-only, local, offline-verified)
+
+**Next session:** Rerun `experiments/mistral/06_onnx.py` on Kaggle — first real-hardware test of the CPU-export/fp16 fix. Confirm no OOM, confirm `peak_vram_gb` during the benchmarked inference loop is sane (should be in the same ballpark as the fp16 baseline, not 2x it), and confirm quality is ~unchanged vs. baseline as expected for ONNX export. Only mark Week 4's ONNX checklist item done once this is clean. Do not attempt Llama-2-13B's ONNX export until the open CPU-RAM risk noted above is separately checked.
+
+---
