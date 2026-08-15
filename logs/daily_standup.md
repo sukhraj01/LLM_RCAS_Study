@@ -140,3 +140,25 @@ Both `EXP-MIS-LORA-CNN` and `EXP-MIS-LORA-SQUAD` rows in `logs/experiment_tracki
 **Next session:** Week 3 — QLoRA fine-tuning, both models, both datasets. Verify config against `EXPERIMENT_MATRIX.md` technique #3 before running.
 
 ---
+
+### 2026-08-15 — Kaggle (QLoRA, Mistral-7B)
+
+**Planned:** Week 3 — QLoRA fine-tuning on Mistral-7B, both datasets (Llama-2-13B QLoRA not attempted this session).
+
+**Completed:** Both experiments finished. Final numbers, `results/mis_results.csv`:
+- `EXP-MIS-QLORA-CNN`: ROUGE1/2/L 0.2775/0.0975/0.1868 (baseline 0.2387/0.0840/0.1607, +16.3%), training_time_hrs 6.44, peak_vram_gb 1.84, inference_latency_ms 16658.0 (slower than baseline's own 9723.3ms, speedup_factor 0.58)
+- `EXP-MIS-QLORA-SQUAD`: EM 83.0/F1 90.03 (baseline EM 8.0/F1 24.19, +272%), training_time_hrs 3.42, peak_vram_gb 1.88, inference_latency_ms 2465.5 (speedup_factor 2.66 vs baseline, but slower than fp16 LoRA's 625.1ms)
+
+Notable, report-worthy finding: QLoRA trained ~14x slower per step than fp16 LoRA on this hardware (183.97s/step vs 12.83s/step) despite ~73% less peak VRAM (1.84-1.88GB vs 6.92-6.93GB). Inference was also slower under QLoRA than fp16 LoRA across both datasets, and CNN's QLoRA inference was even slower than the zero-shot baseline. Plausible explanation, documented in `EXPERIMENT_MATRIX.md` "Qualitative Notes for Report": T4 GPUs (Turing architecture) lack efficient native int4/bf16 tensor-core paths that bitsandbytes' 4-bit compute relies on, so the VRAM savings come at a real compute cost on this specific hardware — a legitimate, reportable trade-off, not a bug.
+
+Both rows merged into `logs/experiment_tracking.csv` as `CONFIRMED FINAL`.
+
+**Issues:** None with the experiments themselves — both completed cleanly, no OOM, no NaN. But a real GPU-budget issue surfaced while merging results: Mistral-only QLoRA alone used 9.86 GPU-hours (6.44 + 3.42) against `EXPERIMENT_MATRIX.md`'s Mistral-only estimate of 3.0h (1.5h/dataset) — already exceeding the entire QLoRA phase's planned 9h budget (both models combined) before Llama-2-13B's two QLoRA experiments (budgeted ~6h) have even started. Per `CLAUDE.md`'s "stop and escalate" rule on resource constraints, this is flagged as an open blocker in `PROJECT_STATE.md` rather than silently proceeding to schedule Llama's QLoRA runs — actual Kaggle account quota needs to be confirmed against this before anything else is scheduled this week.
+
+Also note: `results/mis_results.csv` did not yet contain these two rows when this session's results were reported — added them using the numbers reported, flagged explicitly for the engineer to verify against the actual Kaggle CSV download.
+
+**GPU hours used this session:** 9.86h (training_time_hrs 6.44 + 3.42). This already exceeds the entire QLoRA phase's 9h plan on its own — see `PROJECT_STATE.md` GPU Budget Tracking and Current Blockers.
+
+**Next session:** Do not schedule Llama-2-13B QLoRA (or anything else) until the actual Kaggle account GPU-hour quota for this week is confirmed against the real usage above — see `PROJECT_STATE.md` Current Blockers.
+
+---

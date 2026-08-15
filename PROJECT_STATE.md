@@ -2,11 +2,11 @@
 
 > Updated at the start of every work session (Kaggle or local). This is the single file any new Claude Code session should read FIRST. It reflects reality, not the plan — if something hasn't run yet, it says so.
 
-**Last Updated:** 2026-08-14
+**Last Updated:** 2026-08-15
 
-**Current Phase:** WEEK 3 — Week 1 (env, data pipeline, baselines) and Week 2 (LoRA fine-tuning, Mistral-7B) both complete and confirmed on real hardware; starting QLoRA
+**Current Phase:** WEEK 3 (QLoRA) — Mistral-7B QLoRA (both datasets) complete and confirmed on real hardware; Llama-2-13B QLoRA **not scheduled yet, held pending GPU budget confirmation** — see Current Blockers
 
-**Project Status:** 🟢 On track feature-wise (all 4 Week 1 baselines + both Week 2 LoRA experiments complete, clean, and confirmed) but 🔴 over the Setup+baseline GPU-hour budget — see GPU Budget Tracking below.
+**Project Status:** 🟢 On track feature-wise (Weeks 1-2 complete; Week 3 half-done on Mistral) but 🔴 GPU-hour budget needs an explicit check before anything else is scheduled — see Current Blockers and GPU Budget Tracking below.
 
 ---
 
@@ -43,8 +43,8 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 | **Environment setup** | ✅ Passed (local + Kaggle) | 100% | `.venv` (Python 3.11) created locally, `pip install -r requirements.txt` succeeds after fixing an `optimum[onnxruntime-gpu]`/macOS wheel conflict (see 2026-08-13 ai-usage-log). HF_TOKEN verified. Kaggle-side torch/CUDA now confirmed working via 2 real GPU sessions (baseline runs). The `optimum[onnxruntime-gpu]` extra install step is still unverified — no ONNX experiments have run yet (Week 4). |
 | **Data pipeline** | ✅ Passed (local + Kaggle) | 100% | `python -m utils.data_loader` sanity check passed locally: CNN/DailyMail val=200/test=200, SQuAD val=200/test=200, no overlap by construction. Same loader confirmed working on real Kaggle sessions too — all 4 baseline experiments loaded real CNN/SQuAD samples successfully. |
 | **Baseline inference** | ✅ Passed (Kaggle) | 100% | All 4 runs complete and clean: EXP-MIS-BASE-CNN, EXP-MIS-BASE-SQUAD, EXP-LLAMA-BASE-CNN, EXP-LLAMA-BASE-SQUAD (the one that hung on the first attempt). Load-once fix (see `experiments/common.py`) confirmed working on real hardware — no CPU-offload, no hang. Real numbers in `results/mis_results.csv` / `results/llama_results.csv` and `logs/experiment_tracking.csv`. Note: Llama-2-13B's SQuAD quality (F1 13.19) is notably lower than Mistral-7B's (F1 24.19) — plausibly because Llama-2-13b-hf is a non-instruction-tuned base model on zero-shot QA, not yet investigated further; worth a callout in the eventual report either way. |
-| **Experiment tracking** | ✅ In progress | 6/22 rows | `logs/experiment_tracking.csv` populated for all 4 Week 1 baselines + both Week 2 LoRA (Mistral) rows, both `CONFIRMED FINAL`; 16 rows still `pending` for Weeks 3-4 |
-| **Week 2-4 experiments** | 🟡 In progress | 2/22 (Week 2 LoRA, Mistral-7B, both datasets) | `EXP-MIS-LORA-CNN`/`EXP-MIS-LORA-SQUAD` complete and confirmed on real hardware under the fixed collator (see Current Blockers). Week 3 (QLoRA) up next. |
+| **Experiment tracking** | ✅ In progress | 8/22 rows | `logs/experiment_tracking.csv` populated for all 4 Week 1 baselines + both Week 2 LoRA (Mistral) + both Week 3 QLoRA (Mistral) rows, all `CONFIRMED FINAL`; 14 rows still `pending` — includes Llama-2-13B QLoRA, which is intentionally not scheduled yet (see Current Blockers) |
+| **Week 2-4 experiments** | 🟡 In progress, holding | 4/22 (Week 2 LoRA + Week 3 QLoRA, Mistral-7B only, both datasets) | Mistral LoRA and QLoRA both complete and confirmed on real hardware. **Llama-2-13B QLoRA not yet scheduled** — Mistral-only QLoRA GPU-hours already exceeded the whole phase's planned budget; see Current Blockers before running anything further this week. |
 | **API + dashboard + report** | ⬜ Not started | 0% | Blocked on experiment results |
 
 ---
@@ -68,10 +68,10 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 |-------|---------|----------------|------|-----------|--------|
 | Setup + baseline | 1 | 2 | ≥14.5 | ≤-12.5 | 🔴 Over budget by 7x the plan (2h planned → ≥14.5h actual). All 4 baselines now complete and clean (see Component Status above). Breakdown: 12h (session 1, 2026-08-13, partial failure — 3/4 completed, `EXP-LLAMA-BASE-SQUAD` hung, killed by 12h session cap) + 2.5h (session 3, 2026-08-14, load-once fix — all 4 clean, estimated from per-sample timing, not exact Kaggle accounting). **Not yet included:** a 3rd, intermediate Kaggle session between those two (the guard-only fix test, which correctly fired a fast `RuntimeError` on `EXP-LLAMA-BASE-SQUAD` instead of hanging) had real but unrecorded GPU-hours — true total is ≥14.5h, exact figure still needed. |
 | LoRA (Mistral only) | 2 | 4 | ~2.6 | ~1.4 | ✅ Complete, under budget. ~1.3h (0.86+0.41hr) burned on the buggy-collator run whose results were discarded, plus ~1.3h (0.89+0.42hr) on the confirmed rerun — both real GPU time, counted honestly even though only the rerun's results are final. |
-| QLoRA (both models) | 3 | 9 | 0 | 9 | ⬜ Not started |
+| QLoRA (both models) | 3 | 9 | 9.86 | -0.86 | 🔴 **Already over the entire phase's budget using Mistral alone.** `EXP-MIS-QLORA-CNN` (6.44h) + `EXP-MIS-QLORA-SQUAD` (3.42h) = 9.86h against a 3.0h Mistral-only estimate (3.3x miss) and a 9h whole-phase (both models) estimate — Llama-2-13B's two QLoRA experiments (budgeted ~6h combined) haven't run yet. Root cause understood, not a bug: QLoRA trains ~14x slower per step than fp16 LoRA on these T4 GPUs (Turing lacks efficient native int4/bf16 tensor-core paths for bitsandbytes' compute), so the ~73% VRAM savings come at a real, and apparently underestimated, time cost. **Do not schedule Llama QLoRA until this week's actual Kaggle account quota is confirmed** — see Current Blockers. |
 | Quantization + ONNX | 4 | 6.4 | 0 | 6.4 | ⬜ Not started |
 | Buffer / reruns | 5 | 8 | 0 | 8 | ⬜ Reserve |
-| **TOTAL** | 1-5 | ~29.4 | ≥17.1 | ≤12.3 | 🟡 Setup+baseline + LoRA combined have used ≥58% of the entire 5-phase 29.4h *estimate* against a planned combined share of ~20%. **Not a cap risk**: the 30h figure is a per-week quota that refreshes every Sunday, not a shared multi-phase pool (confirmed by the engineer) — all of Setup+baseline's and LoRA's actual hours landed inside single weeks and each stayed comfortably under that week's own 30h; Weeks 3-4 each get their own fresh 30h regardless of what earlier weeks used. |
+| **TOTAL** | 1-5 | ~29.4 | ≥26.96 | ≤2.44 | 🔴 Setup+baseline + LoRA + Mistral-only QLoRA combined have already used ≥92% of the entire 5-phase 29.4h *estimate*, with Llama's QLoRA (~6h), all of Week 4 (6.4h), and the buffer week (8h) still ahead. **This is the concrete number behind the "confirm GPU budget before scheduling anything else" blocker** — even though the 30h figure is a per-week quota that refreshes every Sunday rather than a shared multi-phase pool (confirmed by the engineer previously), QLoRA's Mistral-only actuals already running 3.3x over its own Mistral-only estimate means Llama's QLoRA (a bigger model, budgeted at 2x Mistral's per-experiment hours already) cannot be assumed to fit its 6h estimate, let alone this week's 30h quota, without checking real usage first. |
 
 Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they exist as slack if experiments run over.
 
@@ -107,7 +107,7 @@ Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they e
 # Blockers & Risks
 
 ### Current Blockers
-None. Week 1 (baselines) and Week 2 (LoRA, Mistral-7B) are both complete and clean.
+⚠️ **GPU budget for this week not yet confirmed against actual Kaggle account quota — do not schedule Llama-2-13B QLoRA or any further experiments until this is checked.** `EXP-MIS-QLORA-CNN`/`EXP-MIS-QLORA-SQUAD` together used 9.86 GPU-hours, already exceeding `EXPERIMENT_MATRIX.md`'s entire QLoRA-phase estimate (9h, both models combined) using Mistral alone — Llama's two QLoRA experiments (budgeted ~6h combined) haven't run yet. Per `CLAUDE.md`'s "stop and escalate" rule ("If constraints are about to be violated, stop and escalate explicitly... do not silently substitute lower-fidelity alternatives"), this is being raised as an explicit decision point rather than assumed to be fine because the plan says QLoRA "fits comfortably." The overrun itself has a credible root cause (T4/Turing GPUs lack efficient int4/bf16 tensor-core paths for bitsandbytes' compute, so training runs ~14x slower per step than fp16 LoRA despite ~73% less VRAM — see `EXPERIMENT_MATRIX.md` Qualitative Notes) and is not itself alarming as a result. What's unresolved is whether this week's actual Kaggle GPU-hour usage (across all sessions, not just `training_time_hrs`) still has room for Llama's QLoRA runs before the weekly 30h cap. **Engineer needs to check the real Kaggle account quota before the next session schedules anything.**
 
 ### Resolved (2026-08-14): EOS-masking collator bug, confirmed on real hardware
 `EXP-MIS-LORA-SQUAD` originally completed with EM 0.0/200 (down from baseline EM 8.0). Root cause: `load_model_and_tokenizer()` sets `tokenizer.pad_token = tokenizer.eos_token` (Mistral's tokenizer ships no distinct pad token), and `run_training_experiment()` previously used `transformers.DataCollatorForLanguageModeling(mlm=False)`, whose default behavior masks any label token equal to `pad_token_id`'s *value* — not by actual padding position — to `-100`. Since `pad_token_id == eos_token_id`, this silently masked every genuine end-of-sequence token in every training target, for every technique/dataset that trains, not SQuAD alone — the model never got gradient signal for when to stop generating. Fixed: `experiments/common.py` now uses a custom `_CausalLMCollator` that masks by `attention_mask == 0` (real padding) instead.
@@ -148,11 +148,13 @@ Both rows in `logs/experiment_tracking.csv` are now marked `CONFIRMED FINAL`, re
 - [x] Log real GPU-hours, peak VRAM, training time, quality vs. Mistral baseline — both rows `CONFIRMED FINAL` in `logs/experiment_tracking.csv`
 - [x] Quality gate check per `EXPERIMENT_MATRIX.md` ("training time roughly 40-60% of full FT cost, no OOM") — passed, no OOM, peak VRAM 6.92-6.93GB, training time well under 1hr each
 
-## Week 3 (starting now): QLoRA fine-tuning, both models, both datasets (~9 GPU-hrs planned)
-- [ ] Verify config matches `EXPERIMENT_MATRIX.md` technique #3
-- [ ] Run `EXP-MIS-QLORA-CNN`/`EXP-MIS-QLORA-SQUAD` and `EXP-LLAMA-QLORA-CNN`/`EXP-LLAMA-QLORA-SQUAD` on Kaggle
-- [ ] Log real GPU-hours, peak VRAM, training time, quality vs. baseline for both models
-- [ ] Quality gate check per `EXPERIMENT_MATRIX.md` ("peak VRAM stays under 14GB, training time visibly less than LoRA's") before moving to Week 4
+## Week 3 (in progress, holding): QLoRA fine-tuning, both models, both datasets (~9 GPU-hrs planned, 9.86h already used on Mistral alone)
+- [x] Verify config matches `EXPERIMENT_MATRIX.md` technique #3
+- [x] Run `EXP-MIS-QLORA-CNN`/`EXP-MIS-QLORA-SQUAD` on Kaggle — complete, `CONFIRMED FINAL`
+- [ ] Run `EXP-LLAMA-QLORA-CNN`/`EXP-LLAMA-QLORA-SQUAD` on Kaggle — **held pending GPU budget confirmation, see Current Blockers, do not schedule yet**
+- [x] Log real GPU-hours, peak VRAM, training time, quality vs. baseline for Mistral
+- [ ] Log same for Llama — blocked on the above
+- [ ] Quality gate check per `EXPERIMENT_MATRIX.md` ("peak VRAM stays under 14GB, training time visibly less than LoRA's") — cannot be evaluated as a whole-phase gate until Llama's rows exist; Mistral's peak VRAM (1.84-1.88GB) is well under 14GB but training time was *not* visibly less than LoRA's (it was ~14x slower per step) — worth deciding explicitly whether this gate's wording needs revisiting before Week 4, not silently waved through
 
 ## Week 4 (experiments)
 - 8-bit + 4-bit quantized inference, ONNX export, both models (6.4 GPU-hrs)
@@ -212,3 +214,16 @@ Both rows in `logs/experiment_tracking.csv` are now marked `CONFIRMED FINAL`, re
 **Blockers:** None
 
 **Next session:** Week 3 — QLoRA fine-tuning, both models, both datasets
+
+### Session 4: Week 3 QLoRA, Mistral-7B Only (2026-08-15)
+- Ran `EXP-MIS-QLORA-CNN` and `EXP-MIS-QLORA-SQUAD` on Kaggle — both completed cleanly, no OOM, no NaN
+- Real numbers (`results/mis_results.csv`): CNN ROUGE1/2/L 0.2775/0.0975/0.1868 (baseline 0.2387/0.0840/0.1607, +16.3%), training_time_hrs 6.44, peak_vram_gb 1.84, inference_latency_ms 16658.0 (speedup_factor 0.58, slower than baseline); SQuAD EM 83.0/F1 90.03 (baseline EM 8.0/F1 24.19, +272%), training_time_hrs 3.42, peak_vram_gb 1.88, inference_latency_ms 2465.5 (speedup_factor 2.66)
+- Notable, report-worthy finding documented in `EXPERIMENT_MATRIX.md` Qualitative Notes: QLoRA trained ~14x slower per step than fp16 LoRA (183.97s/step vs 12.83s/step) despite ~73% less peak VRAM — plausibly T4/Turing GPUs lacking efficient native int4/bf16 tensor-core paths for bitsandbytes' compute. A legitimate hardware-specific trade-off, not a bug.
+- **Did not run Llama-2-13B QLoRA.** Mistral-only QLoRA GPU-hours (9.86h) already exceeded `EXPERIMENT_MATRIX.md`'s entire QLoRA-phase estimate (9h, both models) — flagged as an explicit blocker per `CLAUDE.md`'s "stop and escalate" resource-constraint rule rather than proceeding to schedule Llama's runs on the assumption the plan still holds
+- Updated `logs/experiment_tracking.csv` (both Mistral QLoRA rows `CONFIRMED FINAL`), `results/mis_results.csv` (added the two rows — flagged to engineer for verification since they weren't yet synced when reported), `EXPERIMENT_MATRIX.md` (new QLoRA trade-off note), `logs/daily_standup.md`
+
+**Decisions made:** Mistral QLoRA results accepted as final. Week 3 quality gate explicitly **not** marked passed — the "training time visibly less than LoRA's" criterion actually failed (QLoRA was slower, not faster, in total training time), which is itself worth a decision on whether the gate wording needs revisiting. Llama QLoRA explicitly **not** scheduled this session.
+
+**Blockers:** GPU budget for this week needs confirmation against actual Kaggle account quota before scheduling Llama QLoRA or anything else — see Current Blockers above. Not resolved this session; requires the engineer to check the real Kaggle usage dashboard.
+
+**Next session:** Confirm actual Kaggle GPU-hour quota remaining for this week. Only then decide whether to run Llama-2-13B QLoRA this week, defer it, or reduce scope.
