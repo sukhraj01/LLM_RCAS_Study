@@ -6,6 +6,7 @@ the caveat about optimum's export API varying by version. Requires 01_baseline.p
 Run: python experiments/llama/05_onnx.py
 """
 
+import gc
 import os
 import sys
 import time
@@ -14,10 +15,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import torch
-from optimum.exporters.onnx import main_export
+from huggingface_hub import scan_cache_dir
+from optimum.exporters.onnx import onnx_export_from_model
 from optimum.onnxruntime import ORTModelForCausalLM
-from optimum.utils.save_utils import maybe_save_preprocessors
-from transformers import AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from experiments.common import evaluate_quality, format_example, load_baseline_metrics, save_result
 from utils.config import CHECKPOINTS_DIR, HF_TOKEN, MAX_SEQ_LENGTH, MODELS
@@ -26,14 +27,30 @@ from utils.metrics import quality_degradation_percent, speedup_factor
 
 _loader = DataLoader()
 
+
+def _free_hf_cache(model_id: str):
+    """See experiments/mistral/06_onnx.py's docstring for this function — identical here for
+    consistency between the two ONNX scripts. Deletes the on-disk HF hub cache for model_id via
+    huggingface_hub's own cache-management API; safe once the model is already loaded into
+    memory (verified this session against a tiny Mistral-architecture test model, not yet
+    against Llama-2-13B specifically — see the WARNING below)."""
+    cache_info = scan_cache_dir()
+    for repo in cache_info.repos:
+        if repo.repo_id == model_id and repo.repo_type == "model":
+            revisions = {rev.commit_hash for rev in repo.revisions}
+            if revisions:
+                cache_info.delete_revisions(*revisions).execute()
+            return
+    print(f"[WARNING] _free_hf_cache: no cached revisions found for {model_id} — nothing to free.")
+
+
 if __name__ == "__main__":
     model_id = MODELS["LLAMA"]
-    # ONNX_CACHE_DIR lets a Kaggle session redirect this off the notebook's default output
-    # path (Kaggle enforces a fixed ~20GB quota on tracked output, not the raw disk — see
-    # EXPERIMENT_MATRIX.md Recovery Procedures "ONNX Export Disk OOM"). Falls back to the
-    # previous CHECKPOINTS_DIR-based default when unset, so local/default behavior is
-    # unchanged. For Llama-2-13B this alone does not resolve the separate open VRAM risk
-    # below.
+    # ONNX_CACHE_DIR lets a Kaggle session redirect this if a writable, less-constrained mount
+    # is ever found (Kaggle's default output path has a fixed ~20GB tracked-output quota — see
+    # EXPERIMENT_MATRIX.md Recovery Procedures "ONNX Export Disk OOM"). /opt/bin turned out to
+    # be read-only, so it's no longer recommended anywhere — the mechanism itself stays as a
+    # harmless override, falling back to the previous CHECKPOINTS_DIR-based default when unset.
     onnx_base_dir = os.environ.get("ONNX_CACHE_DIR", CHECKPOINTS_DIR)
     onnx_dir = os.path.join(onnx_base_dir, "llama_onnx")
 
@@ -41,31 +58,34 @@ if __name__ == "__main__":
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    # WARNING: this is Llama-2-13B. fp16 weights alone are ~26GB — already over Kaggle's
-    # 16GB VRAM before any export overhead — and CPU export needs ~26GB+ of Kaggle CPU RAM
-    # to hold the model for tracing, which has NOT been checked. Do not run this script until
-    # that's confirmed. See PROJECT_STATE.md Blockers & Risks / EXPERIMENT_MATRIX.md Recovery
-    # Procedures "ONNX Export OOM" for the open risk this carries beyond Mistral's fix.
+    # WARNING: this is Llama-2-13B, and unlike Mistral, the load-then-free-cache fix below does
+    # NOT resolve this model's disk problem, let alone its separate VRAM problem. fp16 weights
+    # alone are ~26GB — so even with cache and ONNX output never held on disk simultaneously
+    # (what the fix below achieves), the PEAK usage during either single phase is still ~26GB,
+    # which alone exceeds Kaggle's ~20GB output quota with no redirect target currently known to
+    # work. On top of that: fp16 weights alone are already over Kaggle's 16GB VRAM ceiling,
+    # so the final ORTModelForCausalLM.from_pretrained(..., provider="CUDAExecutionProvider")
+    # load below won't fit regardless. Do not run this script until both are separately
+    # resolved. See PROJECT_STATE.md Blockers & Risks / EXPERIMENT_MATRIX.md Recovery
+    # Procedures "ONNX Export OOM" / "ONNX Export Disk OOM" for the open risk this carries
+    # beyond Mistral's fix.
     if os.path.isdir(onnx_dir) and any(f.endswith(".onnx") for f in os.listdir(onnx_dir)):
         print(f"Reusing existing ONNX export at {onnx_dir} (first-run export skipped).")
     else:
-        # Export on CPU with device="cpu": tracing needs the full model resident AND the
-        # traced graph being built simultaneously, which peaks above steady-state inference
-        # VRAM — that combined peak was never separately projected in EXPERIMENT_MATRIX.md
-        # and OOM'd on Kaggle (Mistral-7B) when the model was placed on GPU for export.
-        # dtype="fp16" matters too: main_export defaults to fp32, which would produce a ~2x
-        # larger ONNX graph than the fp16 baseline and blow VRAM again once loaded for
-        # inference below, independent of the CPU/GPU export-device issue.
+        print(f"Loading {model_id} (fp16, CPU) into memory...")
+        model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float16, token=HF_TOKEN)
+        print(f"Model loaded — freeing its on-disk HF cache before export starts writing...")
+        _free_hf_cache(model_id)
+
         print(f"Exporting to ONNX on CPU, fp16 (first run only — writes to {onnx_dir})...")
-        main_export(
-            model_name_or_path=model_id,
+        onnx_export_from_model(
+            model=model,
             output=onnx_dir,
             task="text-generation-with-past",
             device="cpu",
-            dtype="fp16",
-            token=HF_TOKEN,
         )
-        maybe_save_preprocessors(model_id, onnx_dir)
+        del model
+        gc.collect()
 
     print("Loading exported ONNX graph via onnxruntime-gpu CUDAExecutionProvider for benchmarking...")
     ort_model = ORTModelForCausalLM.from_pretrained(onnx_dir, provider="CUDAExecutionProvider")
