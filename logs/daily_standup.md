@@ -164,3 +164,23 @@ Also note: `results/mis_results.csv` did not yet contain these two rows when thi
 **Next session:** Run `EXP-MIS-8BIT-CNN`/`EXP-MIS-8BIT-SQUAD` and `EXP-MIS-4BIT-CNN`/`EXP-MIS-4BIT-SQUAD` on Kaggle (Mistral-7B, inference-only, expected fast) — good use of the freshly-reset quota. Llama-2-13B QLoRA remains deferred, to be rescheduled with a corrected GPU-hour estimate given Mistral's 3.3x miss on this technique.
 
 ---
+
+### 2026-08-15 — Kaggle (8-bit inference, Mistral-7B)
+
+**Planned:** Week 4 — 8-bit quantized inference on Mistral-7B, both datasets (base pretrained model, no LoRA adapter — zero-shot under `load_in_8bit=True`).
+
+**Completed:** Both experiments finished. Real numbers, `results/mis_results.csv`:
+- `EXP-MIS-8BIT-CNN`: ROUGE1/2/L 0.2481/0.0850/0.1656 (baseline 0.2387/0.0840/0.1607, +3.9% — essentially flat/noise-level), peak_vram_gb 3.25 (baseline 6.91, -53%), inference_latency_ms 25594.7 (baseline 9723.3, speedup_factor 0.38 — 2.6x SLOWER)
+- `EXP-MIS-8BIT-SQUAD`: EM 5.5/F1 21.12 (baseline EM 8.0/F1 24.19, -12.7%), peak_vram_gb 3.25, inference_latency_ms 19562.4 (baseline 6560.0, speedup_factor 0.34 — ~3x SLOWER)
+
+Both rows merged into `logs/experiment_tracking.csv` as `CONFIRMED FINAL`, referencing `results/mis_results.csv`. No `training_time_hrs` (inference-only technique, correctly left blank).
+
+Report-worthy: this is the third consecutive bitsandbytes quantization technique (after QLoRA training and QLoRA inference) showing the same pattern — large VRAM reduction, substantially slower compute on this T4 hardware. Elevated from a per-experiment note to a single consolidated project-level finding in `EXPERIMENT_MATRIX.md` Qualitative Notes ("Project-Level Finding: T4/Turing Quantization Slowdown"), citing all three data points and flagging `EXP-MIS-4BIT-CNN`/`SQUAD` (not yet run) as the next confirming-or-disconfirming measurement.
+
+**Issues:** None with the experiments themselves — both completed cleanly, inference-only so no training-side failure modes apply. SQuAD's quality drop (-12.7% F1) is the first quantization-technique result (of the three so far) where quality also degraded rather than staying flat — noted in `EXPERIMENT_MATRIX.md`, not investigated further this session since 8-bit is a well-understood lossy quantization and a modest EM/F1 drop on a 200-example zero-shot QA set is plausible without a pipeline defect.
+
+**GPU hours used this session:** Not separately tracked (inference-only, fast — expected well under 0.5h per `EXPERIMENT_MATRIX.md`'s 0.2h/dataset estimate); no `training_time_hrs` to sum since this technique has none.
+
+**Next session:** Run `EXP-MIS-4BIT-CNN`/`EXP-MIS-4BIT-SQUAD` on Kaggle (Mistral-7B, 4-bit inference-only) — the key data point for confirming or disconfirming the T4/Turing quantization-slowdown finding. Then Mistral ONNX (Week 4 remainder) before returning to the deferred Llama-2-13B QLoRA question.
+
+---

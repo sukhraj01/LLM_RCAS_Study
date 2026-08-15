@@ -7,3 +7,5 @@ EXP-MIS-LORA-CNN,MIS,lora,CNN,0.89,6.92,9299.7,"{'rouge1': 0.2889603733614009, '
 EXP-MIS-LORA-SQUAD,MIS,lora,SQUAD,0.42,6.93,625.1,"{'exact_match': 85.5, 'f1': 91.95948179271709}",completed,adapter saved to /kaggle/working/repo/checkpoints/mistral_lora_squad,280.1,10.49,
 EXP-MIS-QLORA-CNN,MIS,qlora,CNN,6.44,1.84,16658.0,"{'rouge1': 0.2774556858617949, 'rouge2': 0.09750669349766958, 'rougeL': 0.18678760999857086}",completed,adapter saved to /kaggle/working/repo/checkpoints/mistral_qlora_cnn,16.26,0.58,
 EXP-MIS-QLORA-SQUAD,MIS,qlora,SQUAD,3.42,1.88,2465.5,"{'exact_match': 83.0, 'f1': 90.02534612223934}",completed,adapter saved to /kaggle/working/repo/checkpoints/mistral_qlora_squad,272.11,2.66,
+EXP-MIS-8BIT-CNN,MIS,8bit,CNN,,3.25,25594.7,"{'rouge1': 0.24807308616228482, 'rouge2': 0.08502275644891151, 'rougeL': 0.16562520676279247}",completed,,3.94,0.38,
+EXP-MIS-8BIT-SQUAD,MIS,8bit,SQUAD,,3.25,19562.4,"{'exact_match': 5.5, 'f1': 21.117529650283544}",completed,,-12.71,0.34,
