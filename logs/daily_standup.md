@@ -184,3 +184,27 @@ Report-worthy: this is the third consecutive bitsandbytes quantization technique
 **Next session:** Run `EXP-MIS-4BIT-CNN`/`EXP-MIS-4BIT-SQUAD` on Kaggle (Mistral-7B, 4-bit inference-only) — the key data point for confirming or disconfirming the T4/Turing quantization-slowdown finding. Then Mistral ONNX (Week 4 remainder) before returning to the deferred Llama-2-13B QLoRA question.
 
 ---
+
+### 2026-08-15 — Kaggle (4-bit inference, Mistral-7B)
+
+**Planned:** Week 4 — 4-bit quantized inference on Mistral-7B, both datasets (base pretrained model, no LoRA adapter — zero-shot under `load_in_4bit=True`, NF4). This was the explicitly-flagged confirming/disconfirming data point for the T4/Turing quantization-slowdown finding.
+
+**Completed:** Both experiments finished. Real numbers, `results/mis_results.csv`:
+- `EXP-MIS-4BIT-CNN`: ROUGE1/2/L 0.2581/0.0881/0.1714 (baseline 0.2387/0.0840/0.1607, +8.15%), peak_vram_gb 1.81 (baseline 6.91, -74%), inference_latency_ms 14477.5 (baseline 9723.3, speedup_factor 0.66 — 1.5x SLOWER)
+- `EXP-MIS-4BIT-SQUAD`: EM 2.0/F1 13.16 (baseline EM 8.0/F1 24.19, -45.6%), peak_vram_gb 1.81, inference_latency_ms 11292.7 (baseline 6560.0, speedup_factor 0.58 — 1.7x SLOWER)
+
+Both rows merged into `logs/experiment_tracking.csv` as `CONFIRMED FINAL`, referencing `results/mis_results.csv`. No `training_time_hrs` (inference-only technique, correctly left blank).
+
+**This confirms the T4/Turing quantization-slowdown finding.** 4-bit is now the fourth consistent data point (after QLoRA training, QLoRA inference, 8-bit inference) — lower VRAM, still meaningfully slower than baseline. `EXPERIMENT_MATRIX.md`'s Qualitative Notes section updated from "pending confirmation" to "CONFIRMED" with all four data points listed.
+
+Also ran `utils/validation.py`'s `check_quant_vram_relationship(1.81, 3.25)` as a consistency check: returns no issues — 4-bit VRAM (1.81GB) is correctly lower than 8-bit VRAM (3.25GB), exactly as the quantization literature predicts. Good confirmation that while the *speed* side of quantization inverts on this hardware, the *VRAM* side behaves normally.
+
+**New secondary finding, added to `EXPERIMENT_MATRIX.md`:** 4-bit's quality cost relative to 8-bit is task-dependent, not uniform. CNN/summarization ROUGE actually held up slightly better under 4-bit (+8.15%) than 8-bit (+3.94%) — both within noise of baseline. SQuAD/QA degraded far more under 4-bit (-45.6% F1) than 8-bit (-12.71% F1) — a real, non-noise-level hit. Plausible explanation: SQuAD's exact-match-driven metrics penalize short-answer precision loss much more harshly than ROUGE's partial-overlap scoring does for a generated summary. Report framing: don't describe 4-bit as "uniformly worse than 8-bit" — the quality cost shows up specifically on exact/short-answer tasks.
+
+**Issues:** None — both experiments completed cleanly, inference-only so no training-side failure modes apply.
+
+**GPU hours used this session:** Not separately tracked (inference-only, fast — expected well under 0.5h per `EXPERIMENT_MATRIX.md`'s 0.2h/dataset estimate); no `training_time_hrs` to sum since this technique has none.
+
+**Next session:** Mistral-7B ONNX export/inference (`EXP-MIS-ONNX-CNN`/`EXP-MIS-ONNX-SQUAD`) — last Mistral-7B technique in the matrix, closes out Mistral's full 12-experiment set. Then decide on Llama-2-13B's deferred QLoRA and remaining quantization/ONNX experiments.
+
+---

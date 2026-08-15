@@ -9,3 +9,5 @@ EXP-MIS-QLORA-CNN,MIS,qlora,CNN,6.44,1.84,16658.0,"{'rouge1': 0.2774556858617949
 EXP-MIS-QLORA-SQUAD,MIS,qlora,SQUAD,3.42,1.88,2465.5,"{'exact_match': 83.0, 'f1': 90.02534612223934}",completed,adapter saved to /kaggle/working/repo/checkpoints/mistral_qlora_squad,272.11,2.66,
 EXP-MIS-8BIT-CNN,MIS,8bit,CNN,,3.25,25594.7,"{'rouge1': 0.24807308616228482, 'rouge2': 0.08502275644891151, 'rougeL': 0.16562520676279247}",completed,,3.94,0.38,
 EXP-MIS-8BIT-SQUAD,MIS,8bit,SQUAD,,3.25,19562.4,"{'exact_match': 5.5, 'f1': 21.117529650283544}",completed,,-12.71,0.34,
+EXP-MIS-4BIT-CNN,MIS,4bit,CNN,,1.81,14477.5,"{'rouge1': 0.25810196474066116, 'rouge2': 0.08813459385886305, 'rougeL': 0.1713697024014989}",completed,,8.15,0.66,
+EXP-MIS-4BIT-SQUAD,MIS,4bit,SQUAD,,1.81,11292.7,"{'exact_match': 2.0, 'f1': 13.161444336924497}",completed,,-45.6,0.58,

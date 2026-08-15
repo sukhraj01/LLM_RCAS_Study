@@ -4,7 +4,7 @@
 
 **Last Updated:** 2026-08-15
 
-**Current Phase:** WEEK 3/4 — Mistral-7B QLoRA (both datasets) complete and confirmed on real hardware; Mistral-7B 8-bit quantized inference (both datasets) also complete and confirmed. Llama-2-13B QLoRA is **deferred by choice, not blocked** — proceeding next to Mistral-7B 4-bit quantized inference (the remaining Week 4 inference-only technique) to make efficient use of the fresh quota. See GPU Budget Tracking "Kaggle Weekly Quota Reset" note, and EXPERIMENT_MATRIX.md's "Project-Level Finding: T4/Turing Quantization Slowdown" for the emerging cross-technique pattern (QLoRA train, QLoRA inference, 8-bit inference all substantially slower than baseline despite large VRAM savings) that 4-bit inference will confirm or disconfirm.
+**Current Phase:** WEEK 3/4 — Mistral-7B QLoRA, 8-bit inference, and 4-bit inference (all datasets) complete and confirmed on real hardware. Llama-2-13B QLoRA is **deferred by choice, not blocked** — Mistral-7B ONNX export is the remaining Week 4 technique. See EXPERIMENT_MATRIX.md's "Project-Level Finding: T4/Turing Quantization Slowdown — CONFIRMED" for the now-closed cross-technique pattern (QLoRA train, QLoRA inference, 8-bit inference, 4-bit inference all substantially slower than baseline despite large VRAM savings).
 
 **Project Status:** 🟢 On track feature-wise (Weeks 1-2 complete, Week 3 half-done on Mistral) and 🟢 GPU budget healthy again after this week's quota reset — see GPU Budget Tracking below.
 
@@ -43,8 +43,8 @@ This file now reflects a **right-sized, Kaggle-feasible plan**. Full details and
 | **Environment setup** | ✅ Passed (local + Kaggle) | 100% | `.venv` (Python 3.11) created locally, `pip install -r requirements.txt` succeeds after fixing an `optimum[onnxruntime-gpu]`/macOS wheel conflict (see 2026-08-13 ai-usage-log). HF_TOKEN verified. Kaggle-side torch/CUDA now confirmed working via 2 real GPU sessions (baseline runs). The `optimum[onnxruntime-gpu]` extra install step is still unverified — no ONNX experiments have run yet (Week 4). |
 | **Data pipeline** | ✅ Passed (local + Kaggle) | 100% | `python -m utils.data_loader` sanity check passed locally: CNN/DailyMail val=200/test=200, SQuAD val=200/test=200, no overlap by construction. Same loader confirmed working on real Kaggle sessions too — all 4 baseline experiments loaded real CNN/SQuAD samples successfully. |
 | **Baseline inference** | ✅ Passed (Kaggle) | 100% | All 4 runs complete and clean: EXP-MIS-BASE-CNN, EXP-MIS-BASE-SQUAD, EXP-LLAMA-BASE-CNN, EXP-LLAMA-BASE-SQUAD (the one that hung on the first attempt). Load-once fix (see `experiments/common.py`) confirmed working on real hardware — no CPU-offload, no hang. Real numbers in `results/mis_results.csv` / `results/llama_results.csv` and `logs/experiment_tracking.csv`. Note: Llama-2-13B's SQuAD quality (F1 13.19) is notably lower than Mistral-7B's (F1 24.19) — plausibly because Llama-2-13b-hf is a non-instruction-tuned base model on zero-shot QA, not yet investigated further; worth a callout in the eventual report either way. |
-| **Experiment tracking** | ✅ In progress | 10/22 rows | `logs/experiment_tracking.csv` populated for all 4 Week 1 baselines + both Week 2 LoRA (Mistral) + both Week 3 QLoRA (Mistral) + both Week 4 8-bit (Mistral) rows, all `CONFIRMED FINAL`; 12 rows still `pending` — Llama-2-13B QLoRA is deferred by choice (see GPU Budget Tracking), Mistral 4-bit up next |
-| **Week 2-4 experiments** | 🟡 In progress | 6/22 (Week 2 LoRA + Week 3 QLoRA + Week 4 8-bit, Mistral-7B only, both datasets) | Mistral LoRA, QLoRA, and 8-bit inference all complete and confirmed on real hardware. Next up is Mistral 4-bit inference (Week 4 remainder) while Llama-2-13B QLoRA is deferred, not abandoned. |
+| **Experiment tracking** | ✅ In progress | 12/22 rows | `logs/experiment_tracking.csv` populated for all 4 Week 1 baselines + both Week 2 LoRA (Mistral) + both Week 3 QLoRA (Mistral) + both Week 4 8-bit + both Week 4 4-bit (Mistral) rows, all `CONFIRMED FINAL`; 10 rows still `pending` — Llama-2-13B QLoRA is deferred by choice (see GPU Budget Tracking), Mistral ONNX up next |
+| **Week 2-4 experiments** | 🟡 In progress | 8/22 (Week 2 LoRA + Week 3 QLoRA + Week 4 8-bit/4-bit, Mistral-7B only, both datasets) | Mistral LoRA, QLoRA, 8-bit, and 4-bit inference all complete and confirmed on real hardware. Next up is Mistral ONNX export (Week 4 remainder) while Llama-2-13B QLoRA is deferred, not abandoned. |
 | **API + dashboard + report** | ⬜ Not started | 0% | Blocked on experiment results |
 
 ---
@@ -170,9 +170,10 @@ Both rows in `logs/experiment_tracking.csv` are now marked `CONFIRMED FINAL`, re
 
 ## Week 4 (in progress on Mistral): 8-bit + 4-bit quantized inference, ONNX export, both models (6.4 GPU-hrs planned)
 - [x] Run `EXP-MIS-8BIT-CNN`/`EXP-MIS-8BIT-SQUAD` on Kaggle — complete, `CONFIRMED FINAL`. Peak VRAM 3.25GB (-53% vs baseline) but inference 2.6-3x *slower* than baseline on both datasets — third consecutive quantization technique confirming the T4/Turing slowdown pattern (see EXPERIMENT_MATRIX.md Qualitative Notes)
-- [ ] Run `EXP-MIS-4BIT-CNN`/`EXP-MIS-4BIT-SQUAD` on Kaggle — inference-only, fast, good fit for the freshly-reset quota; this is the next confirming-or-disconfirming data point for the quantization-slowdown finding
+- [x] Run `EXP-MIS-4BIT-CNN`/`EXP-MIS-4BIT-SQUAD` on Kaggle — complete, `CONFIRMED FINAL`. Peak VRAM 1.81GB (-74% vs baseline, largest saving of any technique) but inference 1.5-1.7x *slower* than baseline on both datasets — fourth and final data point, T4/Turing quantization-slowdown finding now marked CONFIRMED in EXPERIMENT_MATRIX.md. `utils/validation.py`'s `check_quant_vram_relationship(1.81, 3.25)` confirms 4-bit VRAM < 8-bit VRAM as expected, no issues
 - [x] Log real GPU-hours, peak VRAM, latency, quality vs. baseline for 8-bit
-- [ ] Log same for 4-bit
+- [x] Log same for 4-bit
+- [ ] Run Mistral-7B ONNX export/inference (`EXP-MIS-ONNX-CNN`/`EXP-MIS-ONNX-SQUAD`) — last Mistral-7B technique in the matrix
 - [ ] Llama-2-13B's 8-bit/4-bit/ONNX and QLoRA remain pending — not scheduled this session
 
 ## Week 5 (buffer + compile)
