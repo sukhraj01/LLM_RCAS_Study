@@ -37,7 +37,13 @@ _loader = DataLoader()
 
 if __name__ == "__main__":
     model_id = MODELS["MIS"]
-    onnx_dir = f"{CHECKPOINTS_DIR}/mistral_onnx"
+    # ONNX_CACHE_DIR lets a Kaggle session redirect this off the notebook's default output
+    # path (Kaggle enforces a fixed ~20GB quota on tracked output, not the raw disk — see
+    # EXPERIMENT_MATRIX.md Recovery Procedures "ONNX Export Disk OOM"). Falls back to the
+    # previous CHECKPOINTS_DIR-based default when unset, so local/default behavior is
+    # unchanged.
+    onnx_base_dir = os.environ.get("ONNX_CACHE_DIR", CHECKPOINTS_DIR)
+    onnx_dir = os.path.join(onnx_base_dir, "mistral_onnx")
 
     tokenizer = AutoTokenizer.from_pretrained(model_id, token=HF_TOKEN)
     if tokenizer.pad_token is None:

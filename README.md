@@ -33,8 +33,14 @@ cp .env.example .env             # then fill in HF_TOKEN
    !pip install -U "optimum[onnxruntime-gpu]"  # requirements.txt only pulls CPU onnxruntime (no macOS wheel for -gpu); Kaggle needs this extra step for GPU-accelerated ONNX experiments
    !pip install -U torchao  # Kaggle's base image ships torchao 0.10.0; peft's get_peft_model LoRA dispatch check requires torchao>=0.16.0 or it raises ImportError, even though this project's QLoRA is bitsandbytes-based and never imports torchao directly
    ```
-4. Run the experiment script for whatever's next in `PROJECT_STATE.md` → "What's Next"
-5. Before ending the session: follow `KAGGLE_SYNC.md` — download results, commit, update `PROJECT_STATE.md`
+4. Before running any ONNX export script (`experiments/mistral/06_onnx.py`, `experiments/llama/05_onnx.py`), redirect the HF model cache and the ONNX export output off Kaggle's default working directory:
+   ```bash
+   %env HF_HOME=/opt/bin/hf_cache
+   %env ONNX_CACHE_DIR=/opt/bin/onnx_cache
+   ```
+   Kaggle enforces a fixed ~20GB quota on the notebook's tracked *output* (where `/kaggle/working` lives by default), separate from and much smaller than the raw disk. A model's fp16 HF cache plus its ONNX export easily exceed that on their own for a 7B+ model — `/opt/bin` has ~119GB free and isn't subject to the same output tracking. See `EXPERIMENT_MATRIX.md` Recovery Procedures "ONNX Export Disk OOM" for the full symptom/root-cause writeup.
+5. Run the experiment script for whatever's next in `PROJECT_STATE.md` → "What's Next"
+6. Before ending the session: follow `KAGGLE_SYNC.md` — download results, commit, update `PROJECT_STATE.md`
 
 ## Repo layout
 
