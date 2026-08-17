@@ -206,6 +206,10 @@ train_df = loader.load_dataset("cnn_dailymail", split="train", sample_size=1000)
 **Decision:** All 22 experiments compare against ONNX Runtime for inference speed. TensorRT conversion is attempted only in Week 5 buffer if time allows.
 **Why:** PyTorch → ONNX → TensorRT conversion for LLMs has real operator-support friction; treating it as mandatory across the whole matrix risked blowing the timeline on tooling instead of results.
 
+## ADR-005: T4 is the sole hardware target for all 22 experiments
+**Decision:** Every experiment in the core matrix runs exclusively on Kaggle's T4 GPU. No experiments run on a different GPU architecture (Ampere, Hopper, etc.) as part of the core 22 — this was not evaluated on a second hardware class before being locked in.
+**Why:** T4 is what Kaggle's free tier actually provides, and the project's GPU-hour budget assumes free-tier access throughout — this follows directly from ADR-001 through ADR-004's hardware-constrained scope. It is not merely "whatever was free," though: T4 is a real, widely-deployed resource-constrained GPU in production (AWS G4 instances, Google Cloud T4 instances, Kaggle/Colab free tier), so results are directly relevant to an actual population of budget-constrained deployments, not an artifact specific to this project's setup. The trade-off is real and stated plainly rather than glossed over: every finding — especially the T4/Turing quantization-slowdown finding (`EXPERIMENT_MATRIX.md`) — is scoped to T4/Turing specifically and should not be generalized to GPUs broadly without validation on a second architecture. See `EXPERIMENT_MATRIX.md`'s Limitations section for the full validity discussion. If university Ada cluster access materializes (currently the deferred fallback for Mistral/Llama's blocked ONNX experiments — see `PROJECT_STATE.md`), it would double as a natural second-hardware-class comparison point and should be prioritized as one, not just a way to unblock ONNX.
+
 ---
 
 # Known Limitations & Future Work
@@ -213,7 +217,7 @@ train_df = loader.load_dataset("cnn_dailymail", split="train", sample_size=1000)
 ### Limitations
 - 2 models only, both open-weights — no proprietary/API-based comparison
 - 2 datasets — covers generation + extraction, not instruction-following (unless added back in buffer)
-- Single GPU, free-tier hardware — findings are specific to this VRAM class, stated explicitly in the report
+- Single GPU, free-tier hardware (T4 — see ADR-005) — findings are specific to this VRAM/architecture class, stated explicitly in the report. Full validity discussion (single hardware target, single run per experiment/no seeds, small training scale, unprofiled quantization-slowdown hypothesis) lives in `EXPERIMENT_MATRIX.md`'s Limitations section — this bullet is a pointer, not a duplicate.
 - No full-parameter fine-tuning baseline (see ADR-001) — LoRA serves as the "trainable" upper bound for comparison instead
 
 ### Future Extensions (documented for completeness, not this project)

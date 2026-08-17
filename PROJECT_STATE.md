@@ -93,6 +93,7 @@ Weeks 6-10 have no planned GPU spend (API, dashboard, report, polish) — they e
 | ADR-002 | 2 models, reduced technique set on Llama-13B | Decided | Mistral-7B runs all 6 techniques; Llama-2-13B skips fp16 LoRA (needs ~26GB+, doesn't fit) but keeps QLoRA + both quantization + ONNX. |
 | ADR-003 | 2 datasets instead of 3 | Decided | CNN/DailyMail (summarization) + SQuAD (QA). Alpaca/instruction-following dropped to control scope; can be added back in Week 5+ buffer if ahead of schedule. |
 | ADR-004 | TensorRT is stretch, not required | Decided | ONNX Runtime is the primary inference-optimization comparison for all 22 experiments. TensorRT conversion attempted only if time allows (Week 4 buffer). |
+| ADR-005 | T4 is the sole hardware target for all 22 experiments | Decided | Kaggle free tier = T4 only; not evaluated on a second GPU architecture. T4 is a real widely-deployed resource-constrained GPU (AWS G4, GCP, Kaggle/Colab), so results are relevant to real deployments, not arbitrary — but every finding is scoped to T4/Turing and shouldn't be generalized further without validation. See `EXPERIMENT_MATRIX.md` Limitations. |
 | *(Future)* | Exact LoRA r/alpha values | Pending | Lock in during Week 1 planning, document in `EXPERIMENT_MATRIX.md` |
 
 ---
