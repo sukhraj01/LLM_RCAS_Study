@@ -2,3 +2,7 @@ exp_id,model,technique,dataset,hardware,training_time_hrs,peak_vram_gb,inference
 EXP-LLAMA-BASE-CNN,LLAMA,baseline,CNN,T4,,12.39,15065.6,"{'rouge1': 0.25078525030817, 'rouge2': 0.08700461741796214, 'rougeL': 0.16905006023025135}",completed,,0.0,1.0,
 EXP-LLAMA-BASE-CNN,LLAMA,baseline,CNN,T4,,12.39,14846.0,"{'rouge1': 0.25124785501148034, 'rouge2': 0.08671980409752476, 'rougeL': 0.16893922230470665}",completed,,0.0,1.0,
 EXP-LLAMA-BASE-SQUAD,LLAMA,baseline,SQUAD,T4,,12.38,13456.2,"{'exact_match': 3.0, 'f1': 13.193744841666572}",completed,,0.0,1.0,
+EXP-LLAMA-8BIT-CNN,LLAMA,8bit,CNN,T4,,5.89,26203.1,"{'rouge1': 0.22280625964271758, 'rouge2': 0.07220386766364356, 'rougeL': 0.1511249004439114}",completed,,-11.32,0.57,
+EXP-LLAMA-8BIT-SQUAD,LLAMA,8bit,SQUAD,T4,,5.89,25854.0,"{'exact_match': 0.5, 'f1': 9.713558388516617}",completed,,-26.38,0.52,
+EXP-LLAMA-4BIT-CNN,LLAMA,4bit,CNN,T4,,3.27,24641.4,"{'rouge1': 0.23594123504940756, 'rouge2': 0.0800676130396801, 'rougeL': 0.1596670653573456}",completed,,-6.09,0.6,
+EXP-LLAMA-4BIT-SQUAD,LLAMA,4bit,SQUAD,T4,,3.27,21022.8,"{'exact_match': 1.0, 'f1': 10.602603915788329}",completed,,-19.64,0.64,
