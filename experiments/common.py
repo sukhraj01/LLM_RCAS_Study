@@ -409,7 +409,7 @@ def run_training_experiment(model, tokenizer, exp_id: str, model_key: str, datas
         num_train_epochs=lora_hparams["num_train_epochs"],
         optim=lora_hparams["optim"],
         gradient_checkpointing=lora_hparams["gradient_checkpointing"],
-        save_steps=200,
+        save_steps=25,
         logging_steps=20,
         fp16=not quantized,  # bf16 compute already set inside 4-bit config when quantized
         report_to=[],
