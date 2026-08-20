@@ -125,6 +125,17 @@ QUANT_4BIT_CONFIG = {
 ESTIMATED_GPU_HOURS_TOTAL = 21.3  # core 22 experiments, before buffer
 
 # ---------------------------------------------------------------------------
+# Hardware
+# ---------------------------------------------------------------------------
+
+# Kaggle free tier = T4 only, the sole hardware target for this project (see ADR-005 in
+# ARCHITECTURE.md). save_result() stamps every result row with this so it's never left
+# blank for a new experiment to backfill by hand later — see EXPERIMENT_MATRIX.md
+# Limitations #1. If a second GPU architecture is ever added (e.g. Ada cluster access),
+# this becomes a per-run value instead of a flat constant.
+HARDWARE = "T4"
+
+# ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 

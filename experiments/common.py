@@ -27,6 +27,7 @@ from transformers import Trainer, TrainingArguments
 
 from utils.config import (
     DATASETS,
+    HARDWARE,
     HF_TOKEN,
     LORA_CONFIG,
     LOGS_DIR,
@@ -248,6 +249,7 @@ def save_result(exp_id: str, model_key: str, technique: str, dataset_key: str, r
 
     full_row = {
         "exp_id": exp_id, "model": model_key, "technique": technique, "dataset": dataset_key,
+        "hardware": HARDWARE,
         **row,
     }
 
