@@ -383,12 +383,18 @@ def run_inference_multi_dataset(model_key: str, technique: str, dataset_keys: li
 
 def run_training_experiment(model, tokenizer, exp_id: str, model_key: str, dataset_key: str,
                              technique: str, lora_hparams: dict, output_dir: str, quantized: bool,
-                             baseline_row: dict | None = None):
+                             baseline_row: dict | None = None, resume: bool = False):
     """For LoRA and QLoRA — trains + evaluates on an ALREADY LoRA-wrapped model/tokenizer for
     ONE dataset. Caller (run_training_multi_dataset) owns loading the base model once, applying
     a FRESH adapter per dataset, and releasing the base model once at the end — this function
     only trains whatever adapter it's handed, so it stays correct whether that adapter is fresh
-    or (if ever called directly) reused."""
+    or (if ever called directly) reused.
+
+    resume: if True, resumes from the latest checkpoint-N found under output_dir instead of
+    training from step 0 (via Trainer's own resume_from_checkpoint=True auto-detection — see
+    transformers.trainer_utils.get_last_checkpoint). Raises if output_dir has no checkpoint.
+    Only ever pass True when output_dir is a SINGLE dataset's checkpoint directory — resuming
+    is meaningless against a fresh adapter for a different dataset."""
     train_examples = list(_loader.load(dataset_key, "train"))
     test_examples = list(_loader.load(dataset_key, "test"))
 
@@ -423,7 +429,7 @@ def run_training_experiment(model, tokenizer, exp_id: str, model_key: str, datas
     )
 
     start = time.perf_counter()
-    trainer.train()
+    trainer.train(resume_from_checkpoint=True if resume else None)
     training_time_hrs = (time.perf_counter() - start) / 3600
 
     model.save_pretrained(output_dir)
@@ -462,14 +468,25 @@ def run_training_experiment(model, tokenizer, exp_id: str, model_key: str, datas
 def run_training_multi_dataset(model_key: str, technique: str, dataset_keys: list[str],
                                 lora_hparams: dict, quant_config: dict | None,
                                 output_dir_fn: Callable[[str], str],
-                                baseline_lookup: Callable[[str], dict | None]):
+                                baseline_lookup: Callable[[str], dict | None],
+                                resume: bool = False):
     """Loads the base model ONCE, then for each dataset: applies a FRESH LoRA adapter (so
     datasets never train on top of each other's adapter weights — that would silently
     contaminate the comparison), trains + evaluates, saves the adapter, then strips it back to
     the clean base model via PeftModel.unload() (removes the adapter in place, no reload from
     disk) before the next dataset. The base model is released once, after the whole loop — this
     is the same "load once per process" fix as run_inference_multi_dataset, applied to training
-    so it doesn't hit Llama-2-13B QLoRA in Week 3 the same way it hit the Llama baseline."""
+    so it doesn't hit Llama-2-13B QLoRA in Week 3 the same way it hit the Llama baseline.
+
+    resume: passed through to run_training_experiment (see its docstring). Only valid with a
+    single-dataset dataset_keys — resuming is meaningless when looping multiple datasets, since
+    each has its own checkpoint directory and a fresh adapter is applied per dataset anyway."""
+    if resume and len(dataset_keys) != 1:
+        raise ValueError(
+            f"resume=True requires exactly one dataset, got {dataset_keys} — "
+            "resume targets a single dataset's checkpoint directory, not a multi-dataset loop."
+        )
+
     base_model, tokenizer = load_model_and_tokenizer(model_key, quant_config)
     _assert_fully_on_gpu(base_model, model_key)
 
@@ -482,7 +499,7 @@ def run_training_multi_dataset(model_key: str, technique: str, dataset_keys: lis
             results[dataset_key] = run_training_experiment(
                 adapted_model, tokenizer, exp_id, model_key, dataset_key, technique,
                 lora_hparams, output_dir_fn(dataset_key), quantized=bool(quant_config),
-                baseline_row=baseline_lookup(dataset_key),
+                baseline_row=baseline_lookup(dataset_key), resume=resume,
             )
             base_model = adapted_model.unload()  # strip this dataset's adapter, back to clean base
     finally:
